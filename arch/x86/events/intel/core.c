@@ -3897,6 +3897,26 @@ static struct perf_guest_switch_msr *intel_guest_get_msrs(int *nr)
 		arr[1].guest = 0;
 		*nr = 2;
 	}
+	if (cpuc->pebs_enabled & ~cpuc->intel_ctrl_host_mask) {
+               arr[1].msr = MSR_IA32_PEBS_ENABLE;
+               arr[1].host = cpuc->pebs_enabled & ~cpuc->intel_ctrl_guest_mask;
+               arr[1].guest = cpuc->pebs_enabled & ~cpuc->intel_ctrl_host_mask;
+               /*
+                * The guest PEBS will be disabled once the host PEBS is enabled
+                * since the both enabled case may brings a unknown PMI to
+                * confuse host and the guest PEBS overflow PMI would be missed.
+                */
+               if (arr[1].host)
+                       arr[1].guest = 0;
+               arr[0].guest |= arr[1].guest;
+               *nr = 2;
+       } else if (*nr == 1) {
+               /* Remove MSR_IA32_PEBS_ENABLE from MSR switch list in KVM */
+               arr[1].msr = MSR_IA32_PEBS_ENABLE;
+               arr[1].host = arr[1].guest = 0;
+               *nr = 2;
+       }
+
 
 	return arr;
 }

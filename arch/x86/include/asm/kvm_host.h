@@ -516,6 +516,7 @@ struct kvm_pmu {
 	DECLARE_BITMAP(pmc_in_use, X86_PMC_IDX_MAX);
 
 	u64 pebs_enable;
+	u64 pebs_enable_mask;
 	
 	/*
 	 * The gate to release perf_events not marked in
