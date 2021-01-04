@@ -78,6 +78,7 @@ static void kvm_perf_overflow_intr(struct perf_event *perf_event,
 	if (!test_and_set_bit(pmc->idx, pmu->reprogram_pmi)) {
 		//__set_bit(pmc->idx, (unsigned long *)&pmu->global_status);
 	    if (perf_event->attr.precise_ip) {
+			pmu->need_rewrite_pebs_records = pmu->counter_cross_mapped;
        		/* Indicate PEBS overflow PMI to guest. */
        		__set_bit(GLOBAL_STATUS_BUFFER_OVF_BIT,
            (unsigned long *)&pmu->global_status);

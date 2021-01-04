@@ -735,22 +735,99 @@ out:
        return ret;
 }
 
+static int rewrite_ds_pebs_records(struct kvm_vcpu *vcpu)
+{
+       struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
+       struct kvm_pmc *pmc = NULL;
+       struct debug_store *ds = NULL;
+       gpa_t gpa;
+       u64 pebs_buffer_base, offset, buffer_base, status, new_status, format_size;
+       int srcu_idx, bit, ret = 0;
+
+       if (!pmu->counter_cross_mapped)
+               return ret;
+
+       ds = kmalloc(sizeof(struct debug_store), GFP_KERNEL);
+       if (!ds)
+               return -ENOMEM;
+
+       ret = -EFAULT;
+       srcu_idx = srcu_read_lock(&vcpu->kvm->srcu);
+       if (kvm_read_guest_cached(vcpu->kvm, &pmu->ds_area_cache,
+                       ds, sizeof(struct debug_store)))
+               goto out;
+
+       if (ds->pebs_index <= ds->pebs_buffer_base)
+               goto out;
+
+       pebs_buffer_base = ds->pebs_buffer_base;
+       offset = offsetof(struct pebs_basic, applicable_counters);
+       buffer_base = 0;
+
+       gpa = kvm_mmu_gva_to_gpa_system(vcpu, pebs_buffer_base, NULL);
+       if (kvm_gfn_to_hva_cache_init(vcpu->kvm, &pmu->pebs_buffer_base_cache,
+                       gpa, sizeof(struct pebs_basic)))
+               goto out;
+
+       do {
+               ret = -EFAULT;
+               if (kvm_read_guest_offset_cached(vcpu->kvm, &pmu->pebs_buffer_base_cache,
+                               &status, buffer_base + offset, sizeof(u64)))
+                       goto out;
+               if (kvm_read_guest_offset_cached(vcpu->kvm, &pmu->pebs_buffer_base_cache,
+                               &format_size, buffer_base, sizeof(u64)))
+                       goto out;
+
+               new_status = 0ull;
+               for_each_set_bit(bit, (unsigned long *)&pmu->pebs_enable, X86_PMC_IDX_MAX) {
+                       pmc = kvm_x86_ops.pmu_ops->pmc_idx_to_pmc(pmu, bit);
+
+                       if (!pmc || !pmc->perf_event)
+                               continue;
+
+                       if (test_bit(pmc->perf_event->hw.idx, (unsigned long *)&status))
+                               new_status |= BIT_ULL(pmc->idx);
+               }
+               if (kvm_write_guest_offset_cached(vcpu->kvm, &pmu->pebs_buffer_base_cache,
+                               &new_status, buffer_base + offset, sizeof(u64)))
+                       goto out;
+
+               ret = 0;
+               buffer_base += format_size >> 48;
+       } while (pebs_buffer_base + buffer_base < ds->pebs_index);
+
+out:
+       srcu_read_unlock(&vcpu->kvm->srcu, srcu_idx);
+       kfree(ds);
+       return ret;
+}
+
+
 static void intel_pmu_handle_event(struct kvm_vcpu *vcpu)
 {
        struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
-		int ret;
+		int ret1, ret2;
+
+       if (pmu->need_rewrite_pebs_records) {
+               pmu->need_rewrite_pebs_records = false;
+               ret1 = rewrite_ds_pebs_records(vcpu);
+       }
+
        if (!(pmu->global_ctrl & pmu->pebs_enable))
-               return;
+               goto out;
+			   //return;
 
 		
        if (pmu->counter_cross_mapped && pmu->need_rewrite_ds_pebs_interrupt_threshold) {
-               ret = rewrite_ds_pebs_interrupt_threshold(vcpu);
-               pmu->need_rewrite_ds_pebs_interrupt_threshold = false;
-       }
-
-       if (ret == -ENOMEM)
+           //ret = rewrite_ds_pebs_interrupt_threshold(vcpu);
+            pmu->need_rewrite_ds_pebs_interrupt_threshold = false;
+			ret2 = rewrite_ds_pebs_interrupt_threshold(vcpu);
+               
+	   }
+out:
+       if (ret1 == -ENOMEM || ret2 == -ENOMEM)
                pr_debug_ratelimited("%s: Fail to emulate guest PEBS due to OOM.", __func__);
-       else if (ret == -EFAULT)
+       else if (ret1 == -EFAULT || ret2 == -EFAULT)
                pr_debug_ratelimited("%s: Fail to emulate guest PEBS due to GPA fault.", __func__);
 		
 }

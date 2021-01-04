@@ -518,13 +518,16 @@ struct kvm_pmu {
 	u64 ds_area;
 	u64 cached_ds_area;
 	struct gfn_to_hva_cache ds_area_cache;
-	u64 pebs_enable;
+	struct gfn_to_hva_cache pebs_buffer_base_cache;
+    u64 pebs_enable;
 	u64 pebs_enable_mask;
 	u64 pebs_data_cfg;
     u64 pebs_data_cfg_mask;
 
 	bool counter_cross_mapped;
 	bool need_rewrite_ds_pebs_interrupt_threshold;
+	bool need_rewrite_pebs_records;
+	
 	/*
 	 * The gate to release perf_events not marked in
 	 * pmc_in_use only once in a vcpu time slice.
