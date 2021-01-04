@@ -5,6 +5,7 @@
 #include <asm/vmx.h>
 
 #include "lapic.h"
+#include "pmu.h"
 
 extern bool __read_mostly enable_vpid;
 extern bool __read_mostly flexpriority_enabled;
@@ -376,6 +377,12 @@ static inline bool vmx_pt_mode_is_host_guest(void)
 	return pt_mode == PT_MODE_HOST_GUEST;
 }
 
+static inline bool vmx_pebs_supported(void)
+{
+       return boot_cpu_has(X86_FEATURE_PEBS) && x86_match_cpu(vmx_icl_pebs_cpu);
+}
+
+
 static inline u64 vmx_get_perf_capabilities(void)
 {
 	u64 perf_cap = 0;
@@ -384,6 +391,9 @@ static inline u64 vmx_get_perf_capabilities(void)
 		rdmsrl(MSR_IA32_PERF_CAPABILITIES, perf_cap);
 
 	perf_cap &= PMU_CAP_LBR_FMT;
+
+	if (vmx_pebs_supported())
+        perf_cap &= PERF_CAP_PEBS_MASK;
 
 	/*
 	 * Since counters are virtualized, KVM would support full
