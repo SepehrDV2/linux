@@ -256,6 +256,37 @@ static struct kvm_pmc *intel_msr_idx_to_pmc(struct kvm_vcpu *vcpu, u32 msr)
 	return pmc;
 }
 
+static void intel_pmu_pebs_setup(struct kvm_pmu *pmu)
+{
+       struct kvm_vcpu *vcpu = pmu_to_vcpu(pmu);
+       struct kvm_pmc *pmc = NULL;
+       int bit, idx;
+       gpa_t gpa;
+
+       pmu->need_rewrite_ds_pebs_interrupt_threshold = false;
+
+       for_each_set_bit(bit, (unsigned long *)&pmu->pebs_enable, X86_PMC_IDX_MA
+X) {
+               pmc = kvm_x86_ops.pmu_ops->pmc_idx_to_pmc(pmu, bit);
+
+               if (pmc && pmc_speculative_in_use(pmc)) {
+                       pmu->need_rewrite_ds_pebs_interrupt_threshold = true;
+                       break;
+               }
+       }
+
+       if (pmu->pebs_enable && pmu->cached_ds_area != pmu->ds_area) {
+               idx = srcu_read_lock(&vcpu->kvm->srcu);
+               gpa = kvm_mmu_gva_to_gpa_system(vcpu, pmu->ds_area, NULL);
+               if (kvm_gfn_to_hva_cache_init(vcpu->kvm, &pmu->ds_area_cache,
+                               gpa, sizeof(struct debug_store)))
+                       goto out;
+               pmu->cached_ds_area = pmu->ds_area;
+out:
+               srcu_read_unlock(&vcpu->kvm->srcu, idx);
+       }
+}
+
 static inline void intel_pmu_release_guest_lbr_event(struct kvm_vcpu *vcpu)
 {
 	struct lbr_desc *lbr_desc = vcpu_to_lbr_desc(vcpu);
@@ -436,6 +467,8 @@ static int intel_pmu_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 			return 0;
 		if (kvm_valid_perf_global_ctrl(pmu, data)) {
 			global_ctrl_changed(pmu, data);
+			if (pmu->global_ctrl & pmu->pebs_enable)
+                intel_pmu_pebs_setup(pmu);
 			return 0;
 		}
 		break;
@@ -668,12 +701,58 @@ static void intel_pmu_reset(struct kvm_vcpu *vcpu)
 	intel_pmu_release_guest_lbr_event(vcpu);
 }
 
+static int rewrite_ds_pebs_interrupt_threshold(struct kvm_vcpu *vcpu)
+{
+       struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
+       struct debug_store *ds = NULL;
+       u64 new_threshold, offset;
+       int srcu_idx, ret = -ENOMEM;
+
+       ds = kmalloc(sizeof(struct debug_store), GFP_KERNEL);
+       if (!ds)
+               goto out;
+
+       ret = -EFAULT;
+       srcu_idx = srcu_read_lock(&vcpu->kvm->srcu);
+       if (kvm_read_guest_cached(vcpu->kvm, &pmu->ds_area_cache,
+                       ds, sizeof(struct debug_store)))
+               goto unlock_out;
+
+       /* Adding sizeof(struct pebs_basic) offset is enough to generate PMI. */
+       new_threshold = ds->pebs_buffer_base + sizeof(struct pebs_basic);
+       offset = offsetof(struct debug_store, pebs_interrupt_threshold);
+       if (kvm_write_guest_offset_cached(vcpu->kvm, &pmu->ds_area_cache,
+                       &new_threshold, offset, sizeof(u64)))
+               goto unlock_out;
+
+       ret = 0;
+
+unlock_out:
+       srcu_read_unlock(&vcpu->kvm->srcu, srcu_idx);
+
+out:
+       kfree(ds);
+       return ret;
+}
+
 static void intel_pmu_handle_event(struct kvm_vcpu *vcpu)
 {
        struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
-
+		int ret;
        if (!(pmu->global_ctrl & pmu->pebs_enable))
                return;
+
+		
+       if (pmu->counter_cross_mapped && pmu->need_rewrite_ds_pebs_interrupt_threshold) {
+               ret = rewrite_ds_pebs_interrupt_threshold(vcpu);
+               pmu->need_rewrite_ds_pebs_interrupt_threshold = false;
+       }
+
+       if (ret == -ENOMEM)
+               pr_debug_ratelimited("%s: Fail to emulate guest PEBS due to OOM.", __func__);
+       else if (ret == -EFAULT)
+               pr_debug_ratelimited("%s: Fail to emulate guest PEBS due to GPA fault.", __func__);
+		
 }
 
 

@@ -149,6 +149,18 @@ static inline u64 get_sample_period(struct kvm_pmc *pmc, u64 counter_value)
 	return sample_period;
 }
 
+static inline bool pmc_speculative_in_use(struct kvm_pmc *pmc)
+{
+       struct kvm_pmu *pmu = pmc_to_pmu(pmc);
+
+       if (pmc_is_fixed(pmc))
+               return fixed_ctrl_field(pmu->fixed_ctr_ctrl,
+                       pmc->idx - INTEL_PMC_IDX_FIXED) & 0x3;
+
+       return pmc->eventsel & ARCH_PERFMON_EVENTSEL_ENABLE;
+}
+
+
 static inline void pmc_update_sample_period(struct kvm_pmc *pmc)
 {
 	if (!pmc->perf_event || pmc->is_paused)

@@ -6621,6 +6621,7 @@ gpa_t kvm_mmu_gva_to_gpa_system(struct kvm_vcpu *vcpu, gva_t gva,
 {
 	return vcpu->arch.walk_mmu->gva_to_gpa(vcpu, gva, 0, exception);
 }
+EXPORT_SYMBOL_GPL(kvm_mmu_gva_to_gpa_system);
 
 static int kvm_read_guest_virt_helper(gva_t addr, void *val, unsigned int bytes,
 				      struct kvm_vcpu *vcpu, u32 access,

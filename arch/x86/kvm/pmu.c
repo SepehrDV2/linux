@@ -472,7 +472,7 @@ void kvm_pmu_init(struct kvm_vcpu *vcpu)
 	kvm_pmu_refresh(vcpu);
 }
 
-static inline bool pmc_speculative_in_use(struct kvm_pmc *pmc)
+/*static inline bool pmc_speculative_in_use(struct kvm_pmc *pmc)
 {
 	struct kvm_pmu *pmu = pmc_to_pmu(pmc);
 
@@ -481,7 +481,7 @@ static inline bool pmc_speculative_in_use(struct kvm_pmc *pmc)
 			pmc->idx - INTEL_PMC_IDX_FIXED) & 0x3;
 
 	return pmc->eventsel & ARCH_PERFMON_EVENTSEL_ENABLE;
-}
+}*/
 
 /* Release perf_events for vPMCs that have been unused for a full time slice.  */
 void kvm_pmu_cleanup(struct kvm_vcpu *vcpu)
@@ -581,4 +581,10 @@ void kvm_pmu_counter_cross_mapped_check(struct kvm_vcpu *vcpu)
                        break;
                }
        }
+
+       if (!pmu->counter_cross_mapped)
+               return;
+
+       if (pmu->need_rewrite_ds_pebs_interrupt_threshold)
+               kvm_make_request(KVM_REQ_PMU, pmc->vcpu);
 }
