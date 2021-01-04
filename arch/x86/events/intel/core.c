@@ -3873,6 +3873,7 @@ static struct perf_guest_switch_msr *intel_guest_get_msrs(int *nr)
 	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
 	struct perf_guest_switch_msr *arr = cpuc->guest_switch_msrs;
 	u64 intel_ctrl = hybrid(cpuc->pmu, intel_ctrl);
+	struct debug_store *ds = __this_cpu_read(cpu_hw_events.ds);
 
 	arr[0].msr = MSR_CORE_PERF_GLOBAL_CTRL;
 	arr[0].host = intel_ctrl & ~cpuc->intel_ctrl_guest_mask;
@@ -3915,6 +3916,29 @@ static struct perf_guest_switch_msr *intel_guest_get_msrs(int *nr)
                arr[1].msr = MSR_IA32_PEBS_ENABLE;
                arr[1].host = arr[1].guest = 0;
                *nr = 2;
+       }
+	if (arr[1].guest) {
+		arr[2].msr = MSR_IA32_DS_AREA;
+		arr[2].host = (unsigned long)ds;
+		/* KVM will update MSR_IA32_DS_AREA with the trapped guest value. */
+		arr[2].guest = 0ull;
+		*nr = 3;
+	} else if (*nr == 2) {
+		arr[2].msr = MSR_IA32_DS_AREA;
+		arr[2].host = arr[2].guest = 0;
+		*nr = 3;
+	}
+
+	if (arr[1].guest && x86_pmu.intel_cap.pebs_baseline) {
+               arr[3].msr = MSR_PEBS_DATA_CFG;
+               arr[3].host = cpuc->pebs_data_cfg;
+               /* KVM will update MSR_PEBS_DATA_CFG with the trapped guest value. */
+               arr[3].guest = 0ull;
+               *nr = 4;
+       } else if (*nr == 3) {
+               arr[3].msr = MSR_PEBS_DATA_CFG;
+               arr[3].host = arr[3].guest = 0;
+               *nr = 4;
        }
 
 

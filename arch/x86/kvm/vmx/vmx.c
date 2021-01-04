@@ -952,6 +952,7 @@ static void add_atomic_switch_msr(struct vcpu_vmx *vmx, unsigned msr,
 			return;
 		}
 		break;
+	case MSR_IA32_DS_AREA:
 	case MSR_IA32_PEBS_ENABLE:
 		/* PEBS needs a quiescent period after being disabled (to write
 		 * a record).  Disabling PEBS through VMX MSR swapping doesn't
@@ -6658,10 +6659,19 @@ static void atomic_switch_perf_msrs(struct vcpu_vmx *vmx)
 	int i, nr_msrs;
 	struct perf_guest_switch_msr *msrs;
 
+	struct kvm_vcpu *vcpu = &vmx->vcpu;
+	struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
+ 
 	/* Note, nr_msrs may be garbage if perf_guest_get_msrs() returns NULL. */
 	msrs = perf_guest_get_msrs(&nr_msrs);
 	if (!msrs)
 		return;
+
+	if (nr_msrs > 2 && msrs[1].guest){
+		msrs[2].guest = pmu->ds_area;
+		if (nr_msrs > 3)
+        	msrs[3].guest = pmu->pebs_data_cfg;
+	}
 
 	for (i = 0; i < nr_msrs; i++)
 		if (msrs[i].host == msrs[i].guest)
