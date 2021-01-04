@@ -9910,6 +9910,11 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 	 * result in virtual interrupt delivery.
 	 */
 	local_irq_disable();
+	
+    if (vcpu_to_pmu(vcpu)->global_ctrl & vcpu_to_pmu(vcpu)->pebs_enable)
+        kvm_pmu_counter_cross_mapped_check(vcpu);
+
+
 	vcpu->mode = IN_GUEST_MODE;
 
 	srcu_read_unlock(&vcpu->kvm->srcu, vcpu->srcu_idx);

@@ -521,6 +521,8 @@ struct kvm_pmu {
 	u64 pebs_data_cfg;
     u64 pebs_data_cfg_mask;
 
+	bool counter_cross_mapped;
+	
 	/*
 	 * The gate to release perf_events not marked in
 	 * pmc_in_use only once in a vcpu time slice.

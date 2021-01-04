@@ -553,3 +553,29 @@ cleanup:
 	kfree(filter);
 	return r;
 }
+
+
+/*
+ * The caller needs to ensure that there is no time window for
+ * perf hrtimer irq or any chance to reschedule pmc->perf_event.
+ */
+void kvm_pmu_counter_cross_mapped_check(struct kvm_vcpu *vcpu)
+{
+       struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
+       struct kvm_pmc *pmc = NULL;
+       int bit;
+
+       pmu->counter_cross_mapped = false;
+
+       for_each_set_bit(bit, (unsigned long *)&pmu->pebs_enable, X86_PMC_IDX_MAX) {
+               pmc = kvm_x86_ops.pmu_ops->pmc_idx_to_pmc(pmu, bit);
+
+               if (!pmc || !pmc_speculative_in_use(pmc) || !pmc_is_enabled(pmc))
+                       continue;
+
+               if (pmc->perf_event && (pmc->idx != pmc->perf_event->hw.idx)) {
+                       pmu->counter_cross_mapped = true;
+                       break;
+               }
+       }
+}
