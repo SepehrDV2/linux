@@ -497,6 +497,9 @@ static void intel_pmu_refresh(struct kvm_vcpu *vcpu)
 	pmu->version = eax.split.version_id;
 	if (!pmu->version)
 		return;
+	
+	vcpu->arch.ia32_misc_enable_msr |= MSR_IA32_MISC_ENABLE_EMON;
+
 
 	perf_get_x86_pmu_capability(&x86_pmu);
 
