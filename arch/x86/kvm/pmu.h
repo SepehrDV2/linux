@@ -76,6 +76,7 @@ static inline void pmc_release_perf_event(struct kvm_pmc *pmc)
 		pmc->perf_event = NULL;
 		pmc->current_config = 0;
 		pmc_to_pmu(pmc)->event_count--;
+		pmc->host_idx = -1;
 	}
 }
 

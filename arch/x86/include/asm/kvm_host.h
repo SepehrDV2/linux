@@ -482,6 +482,8 @@ struct kvm_pmc {
 	enum pmc_type type;
 	u8 idx;
 	u64 counter;
+	u8 host_idx;
+	u64 reset_counter;
 	u64 eventsel;
 	struct perf_event *perf_event;
 	struct kvm_vcpu *vcpu;
@@ -527,7 +529,8 @@ struct kvm_pmu {
 	bool counter_cross_mapped;
 	bool need_rewrite_ds_pebs_interrupt_threshold;
 	bool need_rewrite_pebs_records;
-	
+	bool need_save_reset_counter;
+    bool need_rewrite_reset_counter;
 	/*
 	 * The gate to release perf_events not marked in
 	 * pmc_in_use only once in a vcpu time slice.

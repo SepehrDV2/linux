@@ -154,6 +154,7 @@ static void pmc_reprogram_counter(struct kvm_pmc *pmc, u32 type,
 	if (IS_ERR(event)) {
 		pr_debug_ratelimited("kvm_pmu: event creation failed %ld for pmc->idx = %d\n",
 			    PTR_ERR(event), pmc->idx);
+		pmc->host_idx = -1;
 		return;
 	}
 
@@ -570,6 +571,7 @@ void kvm_pmu_counter_cross_mapped_check(struct kvm_vcpu *vcpu)
        int bit;
 
        pmu->counter_cross_mapped = false;
+	   pmu->need_rewrite_reset_counter = false;
 
        for_each_set_bit(bit, (unsigned long *)&pmu->pebs_enable, X86_PMC_IDX_MAX) {
                pmc = kvm_x86_ops.pmu_ops->pmc_idx_to_pmc(pmu, bit);
@@ -579,6 +581,19 @@ void kvm_pmu_counter_cross_mapped_check(struct kvm_vcpu *vcpu)
 
                if (pmc->perf_event && (pmc->idx != pmc->perf_event->hw.idx)) {
                        pmu->counter_cross_mapped = true;
+                       break;
+               }
+       }
+
+		for_each_set_bit(bit, (unsigned long *)&pmu->pebs_enable, X86_PMC_IDX_MAX) {
+               pmc = kvm_x86_ops.pmu_ops->pmc_idx_to_pmc(pmu, bit);
+
+               if (!pmc || !pmc_speculative_in_use(pmc) || !pmc_is_enabled(pmc))
+                       continue;
+
+               if ((pmc->perf_event && (pmc->host_idx != pmc->perf_event->hw.idx))) {
+                       pmu->need_rewrite_reset_counter = true;
+                       kvm_make_request(KVM_REQ_PMU, pmc->vcpu);
                        break;
                }
        }

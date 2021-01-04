@@ -802,11 +802,44 @@ out:
        return ret;
 }
 
+static int rewrite_ds_pebs_reset_counters(struct kvm_vcpu *vcpu)
+{
+       struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
+       struct kvm_pmc *pmc = NULL;
+       int srcu_idx, bit, ret;
+       u64 offset, host_idx, idx;
+
+       ret = -EFAULT;
+       srcu_idx = srcu_read_lock(&vcpu->kvm->srcu);
+       for_each_set_bit(bit, (unsigned long *)&pmu->pebs_enable, X86_PMC_IDX_MAX) {
+               pmc = kvm_x86_ops.pmu_ops->pmc_idx_to_pmc(pmu, bit);
+
+               if (!pmc || !pmc->perf_event)
+                       continue;
+
+               host_idx = pmc->perf_event->hw.idx;
+               idx = (host_idx < INTEL_PMC_IDX_FIXED) ?
+                               host_idx : (MAX_PEBS_EVENTS + host_idx - INTEL_PMC_IDX_FIXED);
+               offset = offsetof(struct debug_store, pebs_event_reset) + sizeof(u64) * idx;
+               if (kvm_write_guest_offset_cached(vcpu->kvm, &pmu->ds_area_cache,
+                               &pmc->reset_counter, offset, sizeof(u64)))
+                       goto out;
+
+               pmc->host_idx = pmc->perf_event->hw.idx;
+       }
+       ret = 0;
+
+out:
+       srcu_read_unlock(&vcpu->kvm->srcu, srcu_idx);
+       return ret;
+}
+
+
 
 static void intel_pmu_handle_event(struct kvm_vcpu *vcpu)
 {
        struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
-		int ret1, ret2;
+		int ret1, ret2, ret3, ret4;
 
        if (pmu->need_rewrite_pebs_records) {
                pmu->need_rewrite_pebs_records = false;
@@ -824,12 +857,19 @@ static void intel_pmu_handle_event(struct kvm_vcpu *vcpu)
 			ret2 = rewrite_ds_pebs_interrupt_threshold(vcpu);
                
 	   }
+
+	   if (pmu->need_rewrite_reset_counter) {
+               ret4 = pmu->need_rewrite_reset_counter = false;
+               rewrite_ds_pebs_reset_counters(vcpu);
+       }
+
+
 out:
-       if (ret1 == -ENOMEM || ret2 == -ENOMEM)
-               pr_debug_ratelimited("%s: Fail to emulate guest PEBS due to OOM.", __func__);
-       else if (ret1 == -EFAULT || ret2 == -EFAULT)
-               pr_debug_ratelimited("%s: Fail to emulate guest PEBS due to GPA fault.", __func__);
-		
+		if (ret1 == -ENOMEM || ret2 == -ENOMEM || ret3 == -ENOMEM || ret4 == -ENOMEM)
+        	pr_debug_ratelimited("%s: Fail to emulate guest PEBS due to OOM.", __func__);
+		else if (ret1 == -EFAULT || ret2 == -EFAULT || ret3 == -EFAULT || ret4 == -EFAULT)
+            pr_debug_ratelimited("%s: Fail to emulate guest PEBS due to GPA fault.", __func__);
+
 }
 
 
