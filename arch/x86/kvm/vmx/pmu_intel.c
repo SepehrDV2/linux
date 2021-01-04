@@ -525,6 +525,7 @@ static void intel_pmu_refresh(struct kvm_vcpu *vcpu)
 
 	for (i = 0; i < pmu->nr_arch_fixed_counters; i++)
 		pmu->fixed_ctr_ctrl_mask &= ~(0xbull << (i * 4));
+	pmu->fixed_ctr_ctrl_mask = ~pmu->fixed_ctr_ctrl_mask;
 	pmu->global_ctrl = ((1ull << pmu->nr_arch_gp_counters) - 1) |
 		(((1ull << pmu->nr_arch_fixed_counters) - 1) << INTEL_PMC_IDX_FIXED);
 	pmu->global_ctrl_mask = ~pmu->global_ctrl;
