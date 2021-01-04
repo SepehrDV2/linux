@@ -264,6 +264,8 @@ static void intel_pmu_pebs_setup(struct kvm_pmu *pmu)
        gpa_t gpa;
 
        pmu->need_rewrite_ds_pebs_interrupt_threshold = false;
+		pmu->need_save_reset_counter = false;
+ 
 
        for_each_set_bit(bit, (unsigned long *)&pmu->pebs_enable, X86_PMC_IDX_MA
 X) {
@@ -271,7 +273,8 @@ X) {
 
                if (pmc && pmc_speculative_in_use(pmc)) {
                        pmu->need_rewrite_ds_pebs_interrupt_threshold = true;
-                       break;
+                       pmu->need_save_reset_counter = true;
+					   break;
                }
        }
 
@@ -802,6 +805,40 @@ out:
        return ret;
 }
 
+static int save_ds_pebs_reset_values(struct kvm_vcpu *vcpu)
+{
+       struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
+       struct kvm_pmc *pmc = NULL;
+       struct debug_store *ds = NULL;
+       int srcu_idx, bit, idx, ret;
+
+       ds = kmalloc(sizeof(struct debug_store), GFP_KERNEL);
+       if (!ds)
+               return -ENOMEM;
+
+       ret = -EFAULT;
+       srcu_idx = srcu_read_lock(&vcpu->kvm->srcu);
+       if (kvm_read_guest_cached(vcpu->kvm, &pmu->ds_area_cache,
+                       ds, sizeof(struct debug_store)))
+               goto out;
+
+       for_each_set_bit(bit, (unsigned long *)&pmu->pebs_enable, X86_PMC_IDX_MAX) {
+               pmc = kvm_x86_ops.pmu_ops->pmc_idx_to_pmc(pmu, bit);
+
+               if (pmc) {
+                       idx = (pmc->idx < INTEL_PMC_IDX_FIXED) ?
+                               pmc->idx : (MAX_PEBS_EVENTS + pmc->idx - INTEL_PMC_IDX_FIXED);
+                       pmc->reset_counter = ds->pebs_event_reset[idx];
+               }
+       }
+       ret = 0;
+
+out:
+       srcu_read_unlock(&vcpu->kvm->srcu, srcu_idx);
+       kfree(ds);
+       return ret;
+}
+
 static int rewrite_ds_pebs_reset_counters(struct kvm_vcpu *vcpu)
 {
        struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
@@ -857,6 +894,12 @@ static void intel_pmu_handle_event(struct kvm_vcpu *vcpu)
 			ret2 = rewrite_ds_pebs_interrupt_threshold(vcpu);
                
 	   }
+
+		if (pmu->need_save_reset_counter) {
+            pmu->need_save_reset_counter = false;
+           ret3 = save_ds_pebs_reset_values(vcpu);
+       }
+
 
 	   if (pmu->need_rewrite_reset_counter) {
                ret4 = pmu->need_rewrite_reset_counter = false;
