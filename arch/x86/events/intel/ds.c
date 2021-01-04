@@ -1873,6 +1873,65 @@ intel_pmu_save_and_restart_reload(struct perf_event *event, int count)
 	return 0;
 }
 
+/*
+ * We may be running with guest PEBS events created by KVM, and the
+ * PEBS records are logged into the guest's DS and invisible to host.
+ *
+ * In the case of guest PEBS overflow, we only trigger a fake event
+ * to emulate the PEBS overflow PMI for guest PBES counters in KVM.
+ * The guest will then vm-entry and check the guest DS area to read
+ * the guest PEBS records.
+ *
+ * The guest PEBS overflow PMI may be dropped when both the guest and
+ * the host use PEBS. Therefore, KVM will not enable guest PEBS once
+ * the host PEBS is enabled since it may bring a confused unknown NMI.
+ *
+ * The contents and other behavior of the guest event do not matter.
+ */
+static int intel_pmu_handle_guest_pebs(struct cpu_hw_events *cpuc,
+				       struct pt_regs *iregs,
+				       struct debug_store *ds)
+{
+	struct perf_sample_data data;
+	struct perf_event *event = NULL;
+	u64 guest_pebs_idxs = cpuc->pebs_enabled & ~cpuc->intel_ctrl_host_mask;
+	int bit;
+
+	/*
+	 * Ideally, we should check guest DS to understand if it's
+	 * a guest PEBS overflow PMI from guest PEBS counters.
+	 * However, it brings high overhead to retrieve guest DS in host.
+	 * So we check host DS instead for performance.
+	 *
+	 * If PEBS interrupt threshold on host is not exceeded in a NMI, there
+	 * must be a PEBS overflow PMI generated from the guest PEBS counters.
+	 * There is no ambiguity since the reported event in the PMI is guest
+	 * only. It gets handled correctly on a case by case base for each event.
+	 *
+	 * Note: KVM disables the co-existence of guest PEBS and host PEBS.
+	 */
+	if (!guest_pebs_idxs || !in_nmi() ||
+		ds->pebs_index >= ds->pebs_interrupt_threshold)
+		return 0;
+
+	for_each_set_bit(bit, (unsigned long *)&guest_pebs_idxs,
+			INTEL_PMC_IDX_FIXED + x86_pmu.num_counters_fixed) {
+
+		event = cpuc->events[bit];
+		if (!event->attr.precise_ip)
+			continue;
+
+		perf_sample_data_init(&data, 0, event->hw.last_period);
+		if (perf_event_overflow(event, &data, iregs))
+			x86_pmu_stop(event, 0);
+
+		/* Inject one fake event is enough. */
+		return 1;
+	}
+
+	return 0;
+}
+
 static __always_inline void
 __intel_pmu_pebs_event(struct perf_event *event,
 		       struct pt_regs *iregs,
@@ -2117,6 +2176,9 @@ static void intel_pmu_drain_pebs_icl(struct pt_regs *iregs, struct perf_sample_d
 	u64 mask;
 
 	if (!x86_pmu.pebs_active)
+		return;
+
+	if (intel_pmu_handle_guest_pebs(cpuc, iregs, ds))
 		return;
 
 	base = (struct pebs_basic *)(unsigned long)ds->pebs_buffer_base;
