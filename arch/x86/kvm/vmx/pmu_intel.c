@@ -383,6 +383,9 @@ static int intel_pmu_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
     case MSR_IA32_PEBS_ENABLE:
                msr_info->data = pmu->pebs_enable;
                return 0;
+    case MSR_IA32_DS_AREA:
+    	msr_info->data = pmu->ds_area;
+    	return 0;
 	default:
 		if ((pmc = get_gp_pmc(pmu, msr, MSR_IA32_PERFCTR0)) ||
 		    (pmc = get_gp_pmc(pmu, msr, MSR_IA32_PMC0))) {
