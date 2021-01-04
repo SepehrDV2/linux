@@ -6678,9 +6678,9 @@ static void atomic_switch_perf_msrs(struct vcpu_vmx *vmx)
 	if (!msrs)
 		return;
 
-	if (pmu->counter_cross_mapped)
-        msrs[1].guest = 0;
-
+	//if (pmu->counter_cross_mapped)
+    //    msrs[1].guest = 0;
+	//
 
 	if (nr_msrs > 2 && msrs[1].guest){
 		msrs[2].guest = pmu->ds_area;

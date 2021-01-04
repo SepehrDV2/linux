@@ -668,6 +668,15 @@ static void intel_pmu_reset(struct kvm_vcpu *vcpu)
 	intel_pmu_release_guest_lbr_event(vcpu);
 }
 
+static void intel_pmu_handle_event(struct kvm_vcpu *vcpu)
+{
+       struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
+
+       if (!(pmu->global_ctrl & pmu->pebs_enable))
+               return;
+}
+
+
 /*
  * Emulate LBR_On_PMI behavior for 1 < pmu.version < 4.
  *
@@ -793,6 +802,7 @@ struct kvm_pmu_ops intel_pmu_ops = {
 	.refresh = intel_pmu_refresh,
 	.init = intel_pmu_init,
 	.reset = intel_pmu_reset,
+	.handle_event = intel_pmu_handle_event,
 	.deliver_pmi = intel_pmu_deliver_pmi,
 	.cleanup = intel_pmu_cleanup,
 };

@@ -337,6 +337,9 @@ void kvm_pmu_handle_event(struct kvm_vcpu *vcpu)
 	 */
 	if (unlikely(pmu->need_cleanup))
 		kvm_pmu_cleanup(vcpu);
+	
+    if (kvm_x86_ops.pmu_ops->handle_event)
+    	kvm_x86_ops.pmu_ops->handle_event(vcpu);
 }
 
 /* check if idx is a valid index to access PMU */
