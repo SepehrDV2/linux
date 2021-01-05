@@ -3878,24 +3878,43 @@ static struct perf_guest_switch_msr *intel_guest_get_msrs(int *nr)
 	arr[0].msr = MSR_CORE_PERF_GLOBAL_CTRL;
 	arr[0].host = intel_ctrl & ~cpuc->intel_ctrl_guest_mask;
 	arr[0].guest = intel_ctrl & ~cpuc->intel_ctrl_host_mask;
-	if (x86_pmu.flags & PMU_FL_PEBS_ALL)
-		arr[0].guest &= ~cpuc->pebs_enabled;
-	else
-		arr[0].guest &= ~(cpuc->pebs_enabled & PEBS_COUNTER_MASK);
+	
+	
+       /*
+        * Disable PEBS in the guest if PEBS is used by the host; enabling PEBS
+        * in both will lead to unexpected PMIs in the host and/or missed PMIs
+        * in the guest.
+        */
+       if (cpuc->pebs_enabled & ~cpuc->intel_ctrl_guest_mask) {
+               if (x86_pmu.flags & PMU_FL_PEBS_ALL)
+                       arr[0].guest &= ~cpuc->pebs_enabled;
+               else
+                       arr[0].guest &= ~(cpuc->pebs_enabled & PEBS_COUNTER_MASK);
+       }
+
 	*nr = 1;
 
-	if (x86_pmu.pebs && x86_pmu.pebs_no_isolation) {
-		/*
-		 * If PMU counter has PEBS enabled it is not enough to
-		 * disable counter on a guest entry since PEBS memory
-		 * write can overshoot guest entry and corrupt guest
-		 * memory. Disabling PEBS solves the problem.
-		 *
-		 * Don't do this if the CPU already enforces it.
-		 */
+	if (x86_pmu.pebs){
 		arr[1].msr = MSR_IA32_PEBS_ENABLE;
-		arr[1].host = cpuc->pebs_enabled;
-		arr[1].guest = 0;
+		//arr[1].host = cpuc->pebs_enabled;
+		//arr[1].guest = 0;
+		arr[1].host = cpuc->pebs_enabled & ~cpuc->intel_ctrl_guest_mask;
+
+        /*
+        * Host and guest PEBS are mutually exclusive.  Load the guest
+        * value iff PEBS is disabled in the host.  If PEBS is enabled
+        * in the host and the CPU supports PEBS isolation, disabling
+        * the counters is sufficient (see above); skip the MSR loads
+        * by stuffing guest=host (KVM will remove the entry).  Without
+        * isolation, PEBS must be explicitly disabled prior to
+        * VM-Enter to prevent PEBS writes from overshooting VM-Enter.
+        */
+        if (!arr[1].host)
+            arr[1].guest = cpuc->pebs_enabled & ~cpuc->intel_ctrl_host_mask;
+        else if (x86_pmu.pebs_no_isolation)
+        	arr[1].guest = 0;
+        else
+            arr[1].guest = arr[1].host;
 		*nr = 2;
 	}
 	if (cpuc->pebs_enabled & ~cpuc->intel_ctrl_host_mask) {
