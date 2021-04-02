@@ -7,6 +7,7 @@
 #ifndef __ASSEMBLY__
 #include <asm/cpufeatures.h>
 #include <asm/alternative.h>
+#include <linux/kernel.h>
 
 #include <linux/kmsan-checks.h>
 
