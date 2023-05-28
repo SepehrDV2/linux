@@ -73,8 +73,11 @@ good_area:
 
 		fault = handle_mm_fault(vma, address, flags, NULL);
 
-		if ((fault & VM_FAULT_RETRY) && fatal_signal_pending(current))
+		if ((fault & VM_FAULT_RETRY) && signal_pending(current)) {
+			if (is_user && !fatal_signal_pending(current))
+				err = 0;
 			goto out_nosemaphore;
+		}
 
 		/* The fault is fully completed (including releasing mmap lock) */
 		if (fault & VM_FAULT_COMPLETED)
