@@ -118,6 +118,7 @@ static long change_pte_range(struct mmu_gather *tlb,
 	flush_tlb_batched_pending(vma->vm_mm);
 	arch_enter_lazy_mmu_mode();
 	do {
+retry_pte:
 		oldpte = *pte;
 		if (pte_present(oldpte)) {
 			pte_t ptent;
@@ -172,6 +173,45 @@ static long change_pte_range(struct mmu_gather *tlb,
 				    !toptier)
 					xchg_page_access_time(page,
 						jiffies_to_msecs(jiffies));
+			}
+
+			/*
+			 * Detect whether we'll need to COW before
+			 * resolving an uffd-wp fault.  Note that this
+			 * includes detection of the zero page (where
+			 * page==NULL)
+			 */
+			if (uffd_wp_resolve) {
+				struct vm_fault vmf = {
+					.vma = vma,
+					.address = addr & PAGE_MASK,
+					.orig_pte = oldpte,
+					.pmd = pmd,
+					.pte = pte,
+					.ptl = ptl,
+				};
+				vm_fault_t ret;
+
+				/* If the fault is resolved already, skip */
+				if (!pte_uffd_wp(*pte))
+					continue;
+
+				arch_leave_lazy_mmu_mode();
+				/* With PTE lock held */
+				ret = do_wp_page_cont(&vmf);
+				if (ret != VM_FAULT_WRITE && ret != 0)
+					/* Probably OOM */
+					return pages;
+				pte = pte_offset_map_lock(vma->vm_mm, pmd,
+							  addr, &ptl);
+				arch_enter_lazy_mmu_mode();
+				if (ret == 0 || !pte_present(*pte))
+					/*
+					 * This PTE could have been modified
+					 * during or after COW before taking
+					 * the lock; retry.
+					 */
+					goto retry_pte;
 			}
 
 			oldpte = ptep_modify_prot_start(vma, addr, pte);
@@ -368,6 +408,7 @@ static inline long change_pmd_range(struct mmu_gather *tlb,
 	long pages = 0;
 	unsigned long nr_huge_updates = 0;
 	struct mmu_notifier_range range;
+	bool uffd_wp_resolve = cp_flags & MM_CP_UFFD_WP_RESOLVE;
 
 	range.start = 0;
 
@@ -403,8 +444,21 @@ static inline long change_pmd_range(struct mmu_gather *tlb,
 		}
 
 		if (is_swap_pmd(*pmd) || pmd_trans_huge(*pmd) || pmd_devmap(*pmd)) {
+<<<<<<< HEAD
 			if ((next - addr != HPAGE_PMD_SIZE) ||
 			    uffd_wp_protect_file(vma, cp_flags)) {
+=======
+			/*
+			 * When resolving an userfaultfd write
+			 * protection fault, it's not easy to identify
+			 * whether a THP is shared with others and
+			 * whether we'll need to do copy-on-write, so
+			 * just split it always for now to simply the
+			 * procedure.  And that's the policy too for
+			 * general THP write-protect in af9e4d5f2de2.
+			 */
+			if (next - addr != HPAGE_PMD_SIZE || uffd_wp_resolve) {
+>>>>>>> 1a6e145d26e7 (userfaultfd: wp: handle COW properly for uffd-wp)
 				__split_huge_pmd(vma, pmd, addr, false, NULL);
 				/*
 				 * For file-backed, the pmd could have been
