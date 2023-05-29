@@ -1307,6 +1307,8 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 	unsigned long start, end, vma_end;
 	struct vma_iterator vmi;
 
+	int uffd_vma_ctx_null;
+		
 	user_uffdio_register = (struct uffdio_register __user *) arg;
 
 	ret = -EFAULT;
@@ -1448,8 +1450,10 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 		 * userfaultfd and with the right tracking mode too.
 		 */
 		if (vma->vm_userfaultfd_ctx.ctx == ctx &&
-		    (vma->vm_flags & vm_flags) == vm_flags)
+		    (vma->vm_flags & vm_flags) == vm_flags) {
+			printk("userfaultfd: userfaultfd_register: vma already registered with proper tracking mode\n");
 			goto skip;
+	        }
 
 		if (vma->vm_start > start)
 			start = vma->vm_start;
@@ -1464,17 +1468,20 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 		if (prev) {
 			/* vma_merge() invalidated the mas */
 			vma = prev;
+			printk("userfaultfd: userfaultfd_register: vma prev\n");
 			goto next;
 		}
 		if (vma->vm_start < start) {
 			ret = split_vma(&vmi, vma, start, 1);
 			if (ret)
 				break;
+			}
 		}
 		if (vma->vm_end > end) {
 			ret = split_vma(&vmi, vma, end, 0);
 			if (ret)
 				break;
+			}
 		}
 	next:
 		/*
@@ -1506,8 +1513,22 @@ out_unlock:
 		 * Declare the WP ioctl only if the WP mode is
 		 * specified and all checks passed with the range
 		 */
-		if (!(uffdio_register.mode & UFFDIO_REGISTER_MODE_WP))
+		if (!(uffdio_register.mode & UFFDIO_REGISTER_MODE_WP)) {
 			ioctls_out &= ~((__u64)1 << _UFFDIO_WRITEPROTECT);
+			printk("userfaultfd: userfaultfd_register: unset uffdio_writeprotect ioctl flag\n");
+		}
+		else {
+			printk("userfaultfd: userfaultfd_register: set uffdio_writeprotect ioctl flag\n");
+		}
+
+		uffd_vma_ctx_null = 1;
+		if (prev) {
+			uffd_vma_ctx_null = prev->vm_userfaultfd_ctx.ctx == NULL ? 1 : 0;
+			printk("userfaultfd: userfaultfd_register: prev vma is not null\n");	
+		}
+		printk("userfaultfd: userfaultfd_register: uffd vma ctx is null: %d\n", uffd_vma_ctx_null);
+		printk("userfaultfd: userfaultfd_register: vma start: %lx, vm length: %ld\n", prev->vm_start, prev->vm_end - prev->vm_start);
+		printk("userfaultfd: userfaultfd_register: vma: %p\n", prev);
 
 		/* CONTINUE ioctl is only supported for MINOR ranges. */
 		if (!(uffdio_register.mode & UFFDIO_REGISTER_MODE_MINOR))
