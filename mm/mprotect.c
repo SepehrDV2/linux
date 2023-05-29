@@ -444,21 +444,8 @@ static inline long change_pmd_range(struct mmu_gather *tlb,
 		}
 
 		if (is_swap_pmd(*pmd) || pmd_trans_huge(*pmd) || pmd_devmap(*pmd)) {
-<<<<<<< HEAD
 			if ((next - addr != HPAGE_PMD_SIZE) ||
 			    uffd_wp_protect_file(vma, cp_flags)) {
-=======
-			/*
-			 * When resolving an userfaultfd write
-			 * protection fault, it's not easy to identify
-			 * whether a THP is shared with others and
-			 * whether we'll need to do copy-on-write, so
-			 * just split it always for now to simply the
-			 * procedure.  And that's the policy too for
-			 * general THP write-protect in af9e4d5f2de2.
-			 */
-			if (next - addr != HPAGE_PMD_SIZE || uffd_wp_resolve) {
->>>>>>> 1a6e145d26e7 (userfaultfd: wp: handle COW properly for uffd-wp)
 				__split_huge_pmd(vma, pmd, addr, false, NULL);
 				/*
 				 * For file-backed, the pmd could have been
