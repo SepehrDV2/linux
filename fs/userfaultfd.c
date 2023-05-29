@@ -410,8 +410,10 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 	 * shmem_vm_ops->fault method is invoked even during
 	 * coredumping without mmap_lock and it ends up here.
 	 */
-	if (current->flags & (PF_EXITING|PF_DUMPCORE))
+	if (current->flags & (PF_EXITING|PF_DUMPCORE)) {
+		printk("fs/userfaultfd.c: handle_userfault: current->flags & (PF_EXISTING|PF_DUMPCORE)\n");
 		goto out;
+        }
 
 	/*
 	 * Coredumping runs without mmap_lock so we can only check that
@@ -422,6 +424,7 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 	ctx = vma->vm_userfaultfd_ctx.ctx;
 	if (!ctx)
 		goto out;
+	}
 
 	BUG_ON(ctx->mm != mm);
 
@@ -430,7 +433,8 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 	/* 0 or > 1 flags set is a bug; we expect exactly 1. */
 	VM_BUG_ON(!reason || (reason & (reason - 1)));
 
-	if (ctx->features & UFFD_FEATURE_SIGBUS)
+	if (ctx->features & UFFD_FEATURE_SIGBUS) {
+		printk("fs/userfaultfd.c: handle_userfault: ctx->features & UFFD_FEATURE_SIGBUS\n");
 		goto out;
 	if (!(vmf->flags & FAULT_FLAG_USER) && (ctx->flags & UFFD_USER_MODE_ONLY))
 		goto out;
@@ -458,6 +462,7 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 		 * close the uffd.
 		 */
 		ret = VM_FAULT_NOPAGE;
+		printk("fs/userfaultfd.c: handle_userfault: ctx->released\n");
 		goto out;
 	}
 
@@ -486,6 +491,7 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 			dump_stack();
 		}
 #endif
+		printk("fs/userfaultfd.c: handle_userfault: !(vmf->flags & FAULT_FLAG_ALLOW_RETRY)\n");
 		goto out;
 	}
 
@@ -494,8 +500,10 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 	 * and wait.
 	 */
 	ret = VM_FAULT_RETRY;
-	if (vmf->flags & FAULT_FLAG_RETRY_NOWAIT)
+	if (vmf->flags & FAULT_FLAG_RETRY_NOWAIT){
+		printk("fs/userfaultfd.c: handle_userfault: vmf->flags & FAULT_FLAG_RETRY_NOWAIT\n");
 		goto out;
+	}
 
 	/* take the reference before dropping the mmap_lock */
 	userfaultfd_ctx_get(ctx);
@@ -578,6 +586,7 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 	 * already released.
 	 */
 	userfaultfd_ctx_put(ctx);
+	//printk("fs/userfaultfd.c: handle_userfault: done\n");
 
 out:
 	return ret;
@@ -1849,6 +1858,8 @@ static int userfaultfd_writeprotect(struct userfaultfd_ctx *ctx,
 	struct uffdio_writeprotect __user *user_uffdio_wp;
 	struct userfaultfd_wake_range range;
 	bool mode_wp, mode_dontwake;
+	
+	printk("fs/userfaultfd.c: userfaultfd_writeprotect: mwriteprotect_range\n");
 
 	if (atomic_read(&ctx->mmap_changing))
 		return -EAGAIN;

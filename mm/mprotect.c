@@ -596,6 +596,8 @@ long change_protection(struct mmu_gather *tlb,
 	else
 		pages = change_protection_range(tlb, vma, start, end, newprot,
 						cp_flags);
+		//printk("mm/mprotect.c: change_protection: !is_vm_hugetlb_page(vma)\n");
+	}
 
 	return pages;
 }

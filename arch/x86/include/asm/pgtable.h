@@ -318,7 +318,12 @@ static inline int pte_uffd_wp(pte_t pte)
 
 static inline pte_t pte_mkuffd_wp(pte_t pte)
 {
+<<<<<<< HEAD
 	return pte_wrprotect(pte_set_flags(pte, _PAGE_UFFD_WP));
+=======
+	printk("arch/x86/include/asm/pgtable.h: pte_mkuffd_wp\n");
+	return pte_set_flags(pte, _PAGE_UFFD_WP);
+>>>>>>> 50e3c9a74139 (tracing)
 }
 
 static inline pte_t pte_clear_uffd_wp(pte_t pte)
