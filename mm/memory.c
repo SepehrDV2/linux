@@ -3337,7 +3337,7 @@ static vm_fault_t do_wp_page(struct vm_fault *vmf)
 			flush_tlb_page(vmf->vma, vmf->address);
 	}
 
-	if (userfaultfd_wp(vma)) {
+	if (userfaultfd_pte_wp(vma, *vmf->pte)) {
 		pte_unmap_unlock(vmf->pte, vmf->ptl);
 		return handle_userfault(vmf, VM_UFFD_WP);
 	}
