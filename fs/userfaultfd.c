@@ -583,6 +583,8 @@ out:
 	return ret;
 }
 
+EXPORT_SYMBOL(handle_userfault);
+
 static void userfaultfd_event_wait_completion(struct userfaultfd_ctx *ctx,
 					      struct userfaultfd_wait_queue *ewq)
 {
