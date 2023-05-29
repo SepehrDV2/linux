@@ -355,6 +355,8 @@ static inline bool userfaultfd_must_wait(struct userfaultfd_ctx *ctx,
 		ret = true;
 	if (!pte_write(*pte) && (reason & VM_UFFD_WP))
 		ret = true;
+	if (!pte_write(*pte) && (reason & VM_UFFD_WP))
+		ret = true;
 	pte_unmap(pte);
 
 out:
