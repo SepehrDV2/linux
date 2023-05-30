@@ -75,6 +75,10 @@ extern int mwriteprotect_range(struct mm_struct *dst_mm,
 			       bool enable_wp, atomic_t *mmap_changing);
 extern long uffd_wp_range(struct mm_struct *dst_mm, struct vm_area_struct *vma,
 			  unsigned long start, unsigned long len, bool enable_wp);
+			       bool enable_wp, bool *mmap_changing);
+extern ssize_t dma_mcopy_pages(struct mm_struct *dst_mm,
+				struct userfaultfd_dma_copy *userfaultfd_dma_copy,
+			    	bool *mmap_changing);
 
 /* mm helpers */
 static inline bool is_mergeable_vm_userfaultfd_ctx(struct vm_area_struct *vma,
