@@ -551,7 +551,7 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 		must_wait = userfaultfd_huge_must_wait(ctx, vmf->vma,
 						       vmf->address,
 						       vmf->flags, reason);
-		printk("fs/userfaultfd.c: handle_userfault: vma_is_dax(vmf->vma) [must_wait: %d]\n", must_wait);
+		//printk("fs/userfaultfd.c: handle_userfault: vma_is_dax(vmf->vma) [must_wait: %d]\n", must_wait);
 	}
 	else if (!is_vm_hugetlb_page(vma))
 		must_wait = userfaultfd_must_wait(ctx, vmf->address, vmf->flags,

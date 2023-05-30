@@ -19,7 +19,7 @@ static int check_vma(struct dev_dax *dev_dax, struct vm_area_struct *vma,
 		const char *func)
 {
 	struct device *dev = &dev_dax->dev;
-	unsigned long mask;
+	unsigned long mask, mask2;
 
 	if (!dax_alive(dev_dax->dax_dev))
 		return -ENXIO;
@@ -32,8 +32,9 @@ static int check_vma(struct dev_dax *dev_dax, struct vm_area_struct *vma,
 		return -EINVAL;
 	}
 
-	mask = dev_dax->align - 1;
-	if (vma->vm_start & mask || vma->vm_end & mask) {
+	mask = dax_region->align - 1;
+	mask2 = (unsigned int)4096 - 1;
+	if ((vma->vm_start & mask || vma->vm_end & mask) && (vma->vm_start & mask2 || vma->vm_end & mask2)) {
 		dev_info_ratelimited(dev,
 				"%s: %s: fail, unaligned vma (%#lx - %#lx, %#lx)\n",
 				current->comm, func, vma->vm_start, vma->vm_end,
