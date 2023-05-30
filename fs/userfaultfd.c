@@ -1337,14 +1337,18 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 
 	ret = -EFAULT;
 	if (copy_from_user(&uffdio_register, user_uffdio_register,
-			   sizeof(uffdio_register)-sizeof(__u64)))
+			   sizeof(uffdio_register)-sizeof(__u64))) {
+		printk("fs/userfaultfd.c: userfaultfd_register: copy_from_user\n");
 		goto out;
+	}
 
 	ret = -EINVAL;
-	if (!uffdio_register.mode)
+	if (!uffdio_register.mode) {
+		printk("fs/userfaultfd.c: userfaultfd_register: !uffdio_register.mode\n");
 		goto out;
 	if (uffdio_register.mode & ~UFFD_API_REGISTER_MODES)
 		goto out;
+	}
 	vm_flags = 0;
 	if (uffdio_register.mode & UFFDIO_REGISTER_MODE_MISSING)
 		vm_flags |= VM_UFFD_MISSING;
@@ -1363,15 +1367,19 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 
 	ret = validate_range(mm, uffdio_register.range.start,
 			     uffdio_register.range.len);
-	if (ret)
+	if (ret) {
+		printk("fs/userfaultfd.c: userfaultfd_register: !validate_range\n");
 		goto out;
+	}
 
 	start = uffdio_register.range.start;
 	end = start + uffdio_register.range.len;
 
 	ret = -ENOMEM;
-	if (!mmget_not_zero(mm))
+	if (!mmget_not_zero(mm)) {
+		printk("fs/userfaultfd.c: userfaultfd_register: !mmget_not_zero(mm)\n");
 		goto out;
+	}
 
 	ret = -EINVAL;
 	mmap_write_lock(mm);
@@ -1379,6 +1387,7 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 	vma = vma_find(&vmi, end);
 	if (!vma)
 		goto out_unlock;
+	}
 
 	/*
 	 * If the first vma contains huge pages, make sure start address
@@ -1387,8 +1396,10 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 	if (is_vm_hugetlb_page(vma)) {
 		unsigned long vma_hpagesize = vma_kernel_pagesize(vma);
 
-		if (start & (vma_hpagesize - 1))
+		if (start & (vma_hpagesize - 1)) {
+			printk("fs/userfaultfd.c: userfaultfd_register: is_vm_hugetlb_page(vma) start & (vma_hpagesize -1)\n");
 			goto out_unlock;
+		}
 	}
 
 	/*
@@ -1405,8 +1416,10 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 
 		/* check not compatible vmas */
 		ret = -EINVAL;
-		if (!vma_can_userfault(cur, vm_flags))
+		if (!vma_can_userfault(cur, vm_flags)) {
+			printk("fs/userfaultfd.c: userfaultfd_register: !vma_can_userfault(cur, vm_flags)\n");
 			goto out_unlock;
+		}
 
 		/*
 		 * UFFDIO_COPY will fill file holes even without
@@ -1417,8 +1430,10 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 		 * F_WRITE_SEAL can be taken until the vma is destroyed.
 		 */
 		ret = -EPERM;
-		if (unlikely(!(cur->vm_flags & VM_MAYWRITE)))
+		if (unlikely(!(cur->vm_flags & VM_MAYWRITE))) {
+			printk("fs/userfaultfd.c: userfaultfd_register: !cur->vm_flags & VM_MAYWRITE\n");
 			goto out_unlock;
+		}
 
 		/*
 		 * If this vma contains ending address, and huge pages
@@ -1430,11 +1445,15 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 
 			ret = -EINVAL;
 
-			if (end & (vma_hpagesize - 1))
+			if (end & (vma_hpagesize - 1)) {
+				printk("fs/userfaultfd.c: userfault_register: end & (vma_hpagesize -1)\n");
 				goto out_unlock;
+			}
 		}
-		if ((vm_flags & VM_UFFD_WP) && !(cur->vm_flags & VM_MAYWRITE))
+		if ((vm_flags & VM_UFFD_WP) && !(cur->vm_flags & VM_MAYWRITE)) {
+			printk("fs/userfaultfd.c: userfault_register: vm_flags & VM_UFFD_WP && !VM_MAYWRITE\n");
 			goto out_unlock;
+		}
 
 		/*
 		 * Check that this vma isn't already owned by a
@@ -1444,8 +1463,10 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 		 */
 		ret = -EBUSY;
 		if (cur->vm_userfaultfd_ctx.ctx &&
-		    cur->vm_userfaultfd_ctx.ctx != ctx)
+		    cur->vm_userfaultfd_ctx.ctx != ctx) {
+			printk("cur->vm_userfaultfd_ctx.ctx != ctx\n");
 			goto out_unlock;
+		}
 
 		/*
 		 * Note vmas containing huge pages
@@ -1475,7 +1496,7 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 		 */
 		if (vma->vm_userfaultfd_ctx.ctx == ctx &&
 		    (vma->vm_flags & vm_flags) == vm_flags) {
-			//printk("fs/userfaultfd.c: userfaultfd_register: vma already registered with proper tracking mode\n");
+			printk("fs/userfaultfd.c: userfaultfd_register: vma already registered with proper tracking mode\n");
 			goto skip;
 	        }
 
@@ -1492,7 +1513,7 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 		if (prev) {
 			/* vma_merge() invalidated the mas */
 			vma = prev;
-			//printk("fs/userfaultfd.c: userfaultfd_register: vma prev\n");
+			printk("fs/userfaultfd.c: userfaultfd_register: vma prev\n");
 			goto next;
 		}
 		if (vma->vm_start < start) {

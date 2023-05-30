@@ -300,6 +300,7 @@ static int dev_dax_may_split(struct vm_area_struct *vma, unsigned long addr)
 
 	if (!IS_ALIGNED(addr, dev_dax->align))
 		return -EINVAL;
+	}
 	return 0;
 }
 

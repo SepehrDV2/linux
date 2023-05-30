@@ -1223,16 +1223,20 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 
 	/* Careful about overflows.. */
 	len = PAGE_ALIGN(len);
-	if (!len)
+	if (!len) {
+		printk("mm/mmap.c: do_mmap: !PAGE_ALIGN(len)\n");
 		return -ENOMEM;
+	}
 
 	/* offset overflow? */
 	if ((pgoff + (len >> PAGE_SHIFT)) < pgoff)
 		return -EOVERFLOW;
 
 	/* Too many mappings? */
-	if (mm->map_count > sysctl_max_map_count)
+	if (mm->map_count > sysctl_max_map_count) {
+		printk("mm/mmap.c: do_mmap: mm->map_count > sysctl_max_map_count\n");
 		return -ENOMEM;
+	}
 
 	/* Obtain the address to map to. we verify (or select) it and ensure
 	 * that it represents a valid section of the address space.
@@ -1822,37 +1826,8 @@ struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
 {
 	unsigned long index = addr;
 
-<<<<<<< HEAD
 	mmap_assert_locked(mm);
 	return mt_find(&mm->mm_mt, &index, ULONG_MAX);
-=======
-	/* Check the cache first. */
-	vma = vmacache_find(mm, addr);
-	if (likely(vma)) {
-		return vma;
-	}
-
-	rb_node = mm->mm_rb.rb_node;
-
-	while (rb_node) {
-		struct vm_area_struct *tmp;
-
-		tmp = rb_entry(rb_node, struct vm_area_struct, vm_rb);
-
-		if (tmp->vm_end > addr) {
-			vma = tmp;
-			if (tmp->vm_start <= addr)
-				break;
-			rb_node = rb_node->rb_left;
-		} else
-			rb_node = rb_node->rb_right;
-	}
-
-	if (vma) {
-		vmacache_update(addr, vma);
-	}
-	return vma;
->>>>>>> a814d8865b10 (progress on write protect support for dax)
 }
 EXPORT_SYMBOL(find_vma);
 
@@ -2234,11 +2209,14 @@ int __split_vma(struct vma_iterator *vmi, struct vm_area_struct *vma,
 		err = vma->vm_ops->may_split(vma, addr);
 		if (err)
 			return err;
+		}
 	}
 
 	new = vm_area_dup(vma);
-	if (!new)
+	if (!new) {
+		printk("mm/mmap.c: __split_vma: vm_area_dup(vma)\n");
 		return -ENOMEM;
+	}
 
 	err = -ENOMEM;
 	if (vma_iter_prealloc(vmi))
@@ -2256,8 +2234,10 @@ int __split_vma(struct vma_iterator *vmi, struct vm_area_struct *vma,
 		goto out_free_vmi;
 
 	err = anon_vma_clone(new, vma);
-	if (err)
+	if (err) {
+		printk("mm/mmap.c: __split_vma: anon_vma_clone(new, vma)\n");
 		goto out_free_mpol;
+	}
 
 	if (new->vm_file)
 		get_file(new->vm_file);
@@ -2305,6 +2285,7 @@ int split_vma(struct vma_iterator *vmi, struct vm_area_struct *vma,
 {
 	if (vma->vm_mm->map_count >= sysctl_max_map_count)
 		return -ENOMEM;
+	}
 
 	return __split_vma(vmi, vma, addr, new_below);
 }
