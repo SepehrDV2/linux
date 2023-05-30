@@ -1588,10 +1588,6 @@ out_unlock:
 		 */
 		if (put_user(ioctls_out, &user_uffdio_register->ioctls))
 			ret = -EFAULT;
-
-		if (put_user(read_cr3_pa(), &user_uffdio_register->base))
-			ret = -EFAULT;
-
 	}
 out:
 	return ret;
@@ -1903,13 +1899,9 @@ static int userfaultfd_writeprotect(struct userfaultfd_ctx *ctx,
 	struct userfaultfd_wake_range range;
 	bool mode_wp, mode_dontwake;
 	
-<<<<<<< HEAD
 	printk("fs/userfaultfd.c: userfaultfd_writeprotect: mwriteprotect_range\n");
 
 	if (atomic_read(&ctx->mmap_changing))
-=======
-	if (READ_ONCE(ctx->mmap_changing))
->>>>>>> ff37688eb8b6 (try to figure out userfaultfd write protection)
 		return -EAGAIN;
 
 	user_uffdio_wp = (struct uffdio_writeprotect __user *) arg;
@@ -2037,6 +2029,35 @@ out:
 	return ret;
 }
 
+static int userfaultfd_base(struct userfaultfd_ctx *ctx,
+              unsigned long arg)
+{
+  int ret;
+  struct uffdio_base uffdio_base;
+  struct uffdio_base __user *user_uffdio_base;
+
+  user_uffdio_base = (struct uffdio_base __user *)arg;
+
+  ret = -EFAULT;
+  if (copy_from_user(&uffdio_base, user_uffdio_base, sizeof(uffdio_base)))
+    goto out;
+
+  ret = validate_range(ctx->mm, uffdio_base.range.start, uffdio_base.range.len);
+  if (ret)
+    goto out;
+
+
+  if (put_user(read_cr3_pa(), &user_uffdio_base->base)) {
+    ret = -EFAULT;
+    goto out;
+  }
+
+  ret = 0;
+
+out:
+  return ret;
+}
+
 static inline unsigned int uffd_ctx_features(__u64 user_features)
 {
 	/*
@@ -2139,6 +2160,9 @@ static long userfaultfd_ioctl(struct file *file, unsigned cmd,
 	case UFFDIO_TLBFLUSH:
 		ret = userfaultfd_tlbflush(ctx, arg);
 		break;
+  case UFFDIO_BASE:
+    ret = userfaultfd_base(ctx, arg);
+    break;
 	}
 	return ret;
 }
