@@ -39,8 +39,8 @@ struct vm_area_struct *find_dst_vma(struct mm_struct *dst_mm,
 		return NULL;
 	}
 
-	printk("mm/userfaultfd.c: vma_find_uffd: start: 0x%lx\tlen: %ld\n", start, len);
-  printk("mm/userfaultfd.c: vma_find_uffd: found vma 0x%p: 0x%lx - 0x%lx\tlen: %ld\n", vma, vma->vm_start, vma->vm_end, (vma->vm_end - vma->vm_start));
+	//printk("mm/userfaultfd.c: vma_find_uffd: start: 0x%lx\tlen: %ld\n", start, len);
+  //printk("mm/userfaultfd.c: vma_find_uffd: found vma 0x%p: 0x%lx - 0x%lx\tlen: %ld\n", vma, vma->vm_start, vma->vm_end, (vma->vm_end - vma->vm_start));
   /*
 	 * Check the vma is registered in uffd, this is required to
 	 * enforce the VM_MAYWRITE check done at uffd registration
@@ -848,7 +848,7 @@ int mwriteprotect_range(struct mm_struct *dst_mm, unsigned long start,
 	else
 		newprot = vm_get_page_prot(dst_vma->vm_flags);
 
-	printk("mm/userfaultfd.c: mwriteprotect_range: changing protection: enable_wp: [%d] is vm hugetlb_page: [%d]\n", enable_wp, is_vm_hugetlb_page(dst_vma));
+	//printk("mm/userfaultfd.c: mwriteprotect_range: changing protection: enable_wp: [%d] is vm hugetlb_page: [%d]\n", enable_wp, is_vm_hugetlb_page(dst_vma));
 	change_protection(dst_vma, start, start + len, newprot,
 			  enable_wp ? MM_CP_UFFD_WP : MM_CP_UFFD_WP_RESOLVE);
 

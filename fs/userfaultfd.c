@@ -36,8 +36,6 @@ int sysctl_unprivileged_userfaultfd __read_mostly;
 
 static struct kmem_cache *userfaultfd_ctx_cachep __read_mostly;
 
-extern unsigned long dump_pagetable(unsigned long address);
-
 enum userfaultfd_state {
 	UFFD_STATE_WAIT_API,
 	UFFD_STATE_RUNNING,
@@ -1775,7 +1773,6 @@ static int userfaultfd_wake(struct userfaultfd_ctx *ctx,
 	wake_userfault(ctx, &range);
 	ret = 0;
 
-	//dump_pagetable(range.start);
 
 out:
 	return ret;
@@ -1916,14 +1913,18 @@ static int userfaultfd_writeprotect(struct userfaultfd_ctx *ctx,
 		return ret;
 
 	if (uffdio_wp.mode & ~(UFFDIO_WRITEPROTECT_MODE_DONTWAKE |
-			       UFFDIO_WRITEPROTECT_MODE_WP))
-		return -EINVAL;
+			       UFFDIO_WRITEPROTECT_MODE_WP)) {
+		printk("fs/userfaultfd.c: userfaultfd_writeprotect: uffdio_wp.mode & ~(UFFDIO_WRITEPROTECT_MODE_DONTWAKE | UFFDIO_WRITEPROTECT_MODE_WP)\n");
+    return -EINVAL;
+  }
 
 	mode_wp = uffdio_wp.mode & UFFDIO_WRITEPROTECT_MODE_WP;
 	mode_dontwake = uffdio_wp.mode & UFFDIO_WRITEPROTECT_MODE_DONTWAKE;
 
-	if (mode_wp && mode_dontwake)
-		return -EINVAL;
+	if (mode_wp && mode_dontwake) {
+		printk("fs/userfaultfd.c: userfaultfd_writeprotect: mode_wp && mode_dontwake\n");
+    return -EINVAL;
+  }
 
 	if (mmget_not_zero(ctx->mm)) {
 		ret = mwriteprotect_range(ctx->mm, uffdio_wp.range.start,
@@ -2053,6 +2054,176 @@ out:
   return ret;
 }
 
+static int userfaultfd_bad_address(void *p)
+{
+  unsigned long dummy;
+  return probe_kernel_address((unsigned long *)p, dummy);
+}
+
+static int userfaultfd_get_flag(struct userfaultfd_ctx *ctx,
+                     unsigned long arg)
+{
+  int ret = -1;
+  unsigned long address;
+  unsigned long flag;
+  struct uffdio_page_flags uffdio_page_flags;
+  struct uffdio_page_flags __user *user_uffdio_page_flags;
+	pgd_t *base = __va(read_cr3_pa());
+	pgd_t *pgd;
+	p4d_t *p4d;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+
+  user_uffdio_page_flags = (struct uffdio_page_flags __user *)arg;
+
+  if (copy_from_user(&uffdio_page_flags, user_uffdio_page_flags, sizeof(uffdio_page_flags))) {
+    printk("fs/userfaultfd.c: userfaultfd_get_flag: copy_from_user failed\n");
+    goto out;
+  }
+
+  address = uffdio_page_flags.va;
+  flag = uffdio_page_flags.flag;
+
+  pgd = base + pgd_index(address);
+	if (userfaultfd_bad_address(pgd))
+		goto bad;
+
+	if (!pgd_present(*pgd)) {
+    ret = 0;
+		goto out;
+  }
+
+	p4d = p4d_offset(pgd, address);
+	if (userfaultfd_bad_address(p4d))
+		goto bad;
+
+	if (!p4d_present(*p4d) || p4d_large(*p4d)) {
+    ret = 0;
+		goto out;
+  }
+
+	pud = pud_offset(p4d, address);
+	if (userfaultfd_bad_address(pud))
+		goto bad;
+
+	if (!pud_present(*pud) || pud_large(*pud)) {
+    ret = 0;
+		goto out;
+  }
+
+	pmd = pmd_offset(pud, address);
+	if (userfaultfd_bad_address(pmd))
+		goto bad;
+
+	if (!pmd_present(*pmd)) {
+    ret = 0;
+		goto out;
+  }
+
+  if (pmd_large(*pmd)) {
+    ret = pmd_flags(*pmd) & flag;
+    goto out;
+  }
+
+	pte = pte_offset_kernel(pmd, address);
+	if (userfaultfd_bad_address(pte))
+		goto bad;
+
+  ret = pte_flags(*pte) & flag;
+
+out:
+  if (put_user(ret, &user_uffdio_page_flags->res)) {
+    return -1;
+  }
+	return 0;
+bad:
+  return -1;
+}
+
+static int userfaultfd_clear_flag(struct userfaultfd_ctx *ctx,
+                                unsigned long arg)
+{
+  int ret = -1;
+  unsigned long address;
+  unsigned long flag;
+  struct uffdio_page_flags uffdio_page_flags;
+  struct uffdio_page_flags __user *user_uffdio_page_flags;
+	pgd_t *base = __va(read_cr3_pa());
+	pgd_t *pgd;
+	p4d_t *p4d;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+
+  user_uffdio_page_flags = (struct uffdio_page_flags __user *)arg;
+
+  if (copy_from_user(&uffdio_page_flags, user_uffdio_page_flags, sizeof(uffdio_page_flags))) {
+    printk("fs/userfaultfd.c: userfaultfd_get_flag: copy_from_user failed\n");
+    goto bad;
+  }
+
+  address = uffdio_page_flags.va;
+  flag = uffdio_page_flags.flag;
+
+  pgd = base + pgd_index(address);
+	if (userfaultfd_bad_address(pgd))
+		goto bad;
+
+	if (!pgd_present(*pgd)) {
+    ret = 0;
+		goto out;
+  }
+
+	p4d = p4d_offset(pgd, address);
+	if (userfaultfd_bad_address(p4d))
+		goto bad;
+
+	if (!p4d_present(*p4d) || p4d_large(*p4d)) {
+    ret = 0;
+		goto out;
+  }
+
+	pud = pud_offset(p4d, address);
+	if (userfaultfd_bad_address(pud))
+		goto bad;
+
+	if (!pud_present(*pud) || pud_large(*pud)) {
+    ret = 0;
+		goto out;
+  }
+
+	pmd = pmd_offset(pud, address);
+	if (userfaultfd_bad_address(pmd))
+		goto bad;
+
+	if (!pmd_present(*pmd)) {
+    *pmd = pmd_clear_flags(*pmd, flag);
+    ret = 1;
+		goto out;
+  }
+
+  if (pmd_large(*pmd)) {
+    ret = pmd_val(*pmd) & flag;
+    goto out;
+  }
+
+	pte = pte_offset_kernel(pmd, address);
+	if (userfaultfd_bad_address(pte))
+		goto bad;
+
+  *pte = pte_clear_flags(*pte, flag);
+  ret = 1;
+
+out:
+  if (put_user(ret, &user_uffdio_page_flags->res)) {
+    return -1;
+  }
+	return 0;
+bad:
+  return -1;
+}
+
 static inline unsigned int uffd_ctx_features(__u64 user_features)
 {
 	/*
@@ -2157,6 +2328,12 @@ static long userfaultfd_ioctl(struct file *file, unsigned cmd,
 		break;
   case UFFDIO_CR3:
     ret = userfaultfd_cr3(ctx, arg);
+    break;
+  case UFFDIO_GET_FLAG:
+    ret = userfaultfd_get_flag(ctx, arg);
+    break;
+  case UFFDIO_CLEAR_FLAG:
+    ret = userfaultfd_clear_flag(ctx, arg);
     break;
 	}
 	return ret;
