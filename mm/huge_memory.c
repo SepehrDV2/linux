@@ -2260,7 +2260,8 @@ static void __split_huge_pmd_locked(struct vm_area_struct *vma, pmd_t *pmd,
 				entry = pte_wrprotect(entry);
 			if (soft_dirty)
 				entry = pte_mksoft_dirty(entry);
-			if (uffd_wp)
+			if (uffd_wp) {
+				printk("mm/huge_memory.c: __split_huge_pmd_locked: uffd_wp\n");
 				entry = pte_mkuffd_wp(entry);
 			page_add_anon_rmap(page + i, vma, addr, false);
 		}

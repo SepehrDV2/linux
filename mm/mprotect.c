@@ -467,10 +467,11 @@ static inline long change_pmd_range(struct mmu_gather *tlb,
 
 				if (nr_ptes) {
 					if (nr_ptes == HPAGE_PMD_NR) {
+						//printk("mm/mprotect.c: change_pmd_range: HPAGE_PMD_NR\n");
 						pages += HPAGE_PMD_NR;
 						nr_huge_updates++;
 					}
-
+					//printk("mm/mprotect.c: change_pmd_range: huge pmd was handled\n");
 					/* huge pmd was handled */
 					goto next;
 				}
