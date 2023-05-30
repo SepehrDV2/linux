@@ -1528,7 +1528,7 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 		if (prev) {
 			/* vma_merge() invalidated the mas */
 			vma = prev;
-			printk("fs/userfaultfd.c: userfaultfd_register: vma prev\n");
+			//printk("fs/userfaultfd.c: userfaultfd_register: vma prev\n");
 			goto next;
 		}
 		if (vma->vm_start < start) {
@@ -1575,20 +1575,7 @@ out_unlock:
 		 */
 		if (!(uffdio_register.mode & UFFDIO_REGISTER_MODE_WP)) {
 			ioctls_out &= ~((__u64)1 << _UFFDIO_WRITEPROTECT);
-			//printk("fs/userfaultfd.c: userfaultfd_register: unset uffdio_writeprotect ioctl flag\n");
 		}
-		else {
-			//printk("fs/userfaultfd.c: userfaultfd_register: set uffdio_writeprotect ioctl flag\n");
-		}
-
-		uffd_vma_ctx_null = 1;
-		if (prev) {
-			uffd_vma_ctx_null = prev->vm_userfaultfd_ctx.ctx == NULL ? 1 : 0;
-			//printk("fs/userfaultfd.c: userfaultfd_register: prev vma is not null\n");	
-		}
-		//printk("fs/userfaultfd.c: userfaultfd_register: uffd vma ctx is null: %d\n", uffd_vma_ctx_null);
-		//printk("fs/userfaultfd.c: userfaultfd_register: vma start: %lx, vm length: %ld\n", prev->vm_start, prev->vm_end - prev->vm_start);
-		//printk("fs/userfaultfd.c: userfaultfd_register: vma: %p\n", prev);
 
 		/* CONTINUE ioctl is only supported for MINOR ranges. */
 		if (!(uffdio_register.mode & UFFDIO_REGISTER_MODE_MINOR))
@@ -1601,8 +1588,6 @@ out_unlock:
 		 */
 		if (put_user(ioctls_out, &user_uffdio_register->ioctls))
 			ret = -EFAULT;
-
-		//printk("fs/userfaultfd: userfaultfd_register: register va: %016llX\n", uffdio_register.range.start);
 
 		if (put_user(read_cr3_pa(), &user_uffdio_register->base))
 			ret = -EFAULT;
@@ -1794,7 +1779,7 @@ static int userfaultfd_wake(struct userfaultfd_ctx *ctx,
 	wake_userfault(ctx, &range);
 	ret = 0;
 
-	dump_pagetable(range.start);
+	//dump_pagetable(range.start);
 
 out:
 	return ret;
@@ -1918,9 +1903,13 @@ static int userfaultfd_writeprotect(struct userfaultfd_ctx *ctx,
 	struct userfaultfd_wake_range range;
 	bool mode_wp, mode_dontwake;
 	
+<<<<<<< HEAD
 	printk("fs/userfaultfd.c: userfaultfd_writeprotect: mwriteprotect_range\n");
 
 	if (atomic_read(&ctx->mmap_changing))
+=======
+	if (READ_ONCE(ctx->mmap_changing))
+>>>>>>> ff37688eb8b6 (try to figure out userfaultfd write protection)
 		return -EAGAIN;
 
 	user_uffdio_wp = (struct uffdio_writeprotect __user *) arg;
