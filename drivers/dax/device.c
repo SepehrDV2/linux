@@ -111,7 +111,7 @@ static vm_fault_t __dev_dax_pte_fault(struct dev_dax *dev_dax,
 	unsigned int fault_size = PAGE_SIZE;
 	struct vm_area_struct *vma = vmf->vma;
 
-	//printk("drivers/dax/device.c: dax: pte fault\n");
+	printk("drivers/dax/device.c: dax: pte fault\n");
 
 	if (check_vma(dev_dax, vmf->vma, __func__))
 		return VM_FAULT_SIGBUS;
@@ -139,7 +139,15 @@ static vm_fault_t __dev_dax_pte_fault(struct dev_dax *dev_dax,
 		//return VM_FAULT_SIGBUS;
 	}
 */
-        if (vma && userfaultfd_missing(vma)) {
+
+    if (dax_region->align > PAGE_SIZE) {
+        printk("drivers/dax/device.c: __dev_dax_pte_fault: dax_region->align > PAGE_SIZE\n");
+    }
+    if (fault_size != dax_region->align) {
+        printk("drivers/dax/device.c: __dev_dax_pte_fault: dax_region->align != fault_size\n");
+    }
+    
+    if (vma && userfaultfd_missing(vma)) {
 		//printk("drivers/dax/device.c: __dev_dax_pte_fault: vma && userfaultfd_missing(vma)\n");
 		return handle_userfault(vmf, VM_UFFD_MISSING);
 	}
@@ -169,6 +177,10 @@ static vm_fault_t __dev_dax_pmd_fault(struct dev_dax *dev_dax,
 	unsigned int fault_size = PMD_SIZE;
 	struct vm_area_struct *vma = vmf->vma;
 
+  if ((vmf->address & ~HPAGE_PMD_MASK)) {
+    printk("drivers/dax/device.c: __dev_dax_pmd_fault: addr %lx not huge-page aligned\n", vmf->address);
+  }
+
 	//printk("drivers/dax/device.c: dax: pmd fault\n");
 
 	if (check_vma(dev_dax, vmf->vma, __func__)) {
@@ -194,24 +206,28 @@ static vm_fault_t __dev_dax_pmd_fault(struct dev_dax *dev_dax,
 		return VM_FAULT_SIGBUS;
 	}
 	else if (fault_size > dax_region->align) {
+<<<<<<< HEAD
 		//printk("drivers/dax/device.c: dax: pmd fault fallback\n");
 >>>>>>> 71314b4d8c4a (allow allocation of 4K page even if device is 2MB aligned)
+=======
+		printk("drivers/dax/device.c: dax: pmd fault fallback\n");
+>>>>>>> b95dfbe0981a (bugfix for dax alignment issue)
 		return VM_FAULT_FALLBACK;
 	}
 
 	/* if we are outside of the VMA */
 	if (pmd_addr < vmf->vma->vm_start ||
 			(pmd_addr + PMD_SIZE) > vmf->vma->vm_end) {
-		//printk("drivers/dax/device.c: __dev_dax_pmd_fault: pmd_addr [%lx] < vmf->vma->vm_start [%lx] || pmd_addr + PMD_SIZE [%lx] > vmf->vma->vm_end [%lx]\n",
-		//		pmd_addr, vmf->vma->vm_start, pmd_addr + PMD_SIZE, vmf->vma->vm_end);
+		printk("drivers/dax/device.c: __dev_dax_pmd_fault: pmd_addr [%lx] < vmf->vma->vm_start [%lx] || pmd_addr + PMD_SIZE [%lx] > vmf->vma->vm_end [%lx]\n",
+				pmd_addr, vmf->vma->vm_start, pmd_addr + PMD_SIZE, vmf->vma->vm_end);
 		return VM_FAULT_FALLBACK;
 		//return __dev_dax_pte_fault(dev_dax, vmf, pfn);
 		//return VM_FAULT_SIGBUS;
 	}
 
-        if (vma && userfaultfd_missing(vma)) {
+    if (vma && userfaultfd_missing(vma)) {
 		//printk("drivers/dax/device.c: __dev_dax_pmd_fault: vma && userfaultfd_missing(vm)\n");
-                return handle_userfault(vmf, VM_UFFD_MISSING);
+        return handle_userfault(vmf, VM_UFFD_MISSING);
 	}
 
 
@@ -224,9 +240,13 @@ static vm_fault_t __dev_dax_pmd_fault(struct dev_dax *dev_dax,
 
 	pfn = phys_to_pfn_t(phys, PFN_DEV|PFN_MAP);
 
+<<<<<<< HEAD
 	dax_set_mapping(vmf, pfn, fault_size);
 
 	return vmf_insert_pfn_pmd(vmf, pfn, vmf->flags & FAULT_FLAG_WRITE);
+=======
+  return vmf_insert_pfn_pmd(vmf, *pfn, vmf->flags & FAULT_FLAG_WRITE);
+>>>>>>> b95dfbe0981a (bugfix for dax alignment issue)
 }
 
 #ifdef CONFIG_HAVE_ARCH_TRANSPARENT_HUGEPAGE_PUD
@@ -278,8 +298,8 @@ static vm_fault_t __dev_dax_pud_fault(struct dev_dax *dev_dax,
 		return VM_FAULT_SIGBUS;
 	}
 
-        if (vma && userfaultfd_missing(vma)) {
-                //printk("drivers/dax/device.c: __dev_dax_pud_fault: vma && userfaultfd_missing(vm)\n");
+    if (vma && userfaultfd_missing(vma)) {
+        //printk("drivers/dax/device.c: __dev_dax_pud_fault: vma && userfaultfd_missing(vm)\n");
 		return handle_userfault(vmf, VM_UFFD_MISSING);
 	}
 	
@@ -293,9 +313,13 @@ static vm_fault_t __dev_dax_pud_fault(struct dev_dax *dev_dax,
 
 	pfn = phys_to_pfn_t(phys, PFN_DEV|PFN_MAP);
 
+<<<<<<< HEAD
 	dax_set_mapping(vmf, pfn, fault_size);
 
 	return vmf_insert_pfn_pud(vmf, pfn, vmf->flags & FAULT_FLAG_WRITE);
+=======
+  return vmf_insert_pfn_pud(vmf, *pfn, vmf->flags & FAULT_FLAG_WRITE);
+>>>>>>> b95dfbe0981a (bugfix for dax alignment issue)
 }
 #else
 static vm_fault_t __dev_dax_pud_fault(struct dev_dax *dev_dax,
@@ -320,7 +344,13 @@ static vm_fault_t dev_dax_huge_fault(struct vm_fault *vmf,
 	id = dax_read_lock();
 	switch (pe_size) {
 	case PE_SIZE_PTE:
+<<<<<<< HEAD
 		rc = __dev_dax_pte_fault(dev_dax, vmf);
+=======
+		fault_size = PAGE_SIZE;
+        printk("drivers/dax/device.c: faulting in a pte\n");
+		rc = __dev_dax_pte_fault(dev_dax, vmf, &pfn);
+>>>>>>> b95dfbe0981a (bugfix for dax alignment issue)
 		break;
 	case PE_SIZE_PMD:
 		rc = __dev_dax_pmd_fault(dev_dax, vmf);
