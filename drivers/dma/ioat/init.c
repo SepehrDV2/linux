@@ -507,6 +507,7 @@ static int ioat_probe(struct ioatdma_device *ioat_dma)
 		goto err_out;
 	}
 
+	printk("wei: ioat probe\n");
 	ioat_enumerate_channels(ioat_dma);
 
 	dma_cap_set(DMA_MEMCPY, dma->cap_mask);
@@ -589,6 +590,7 @@ static void ioat_enumerate_channels(struct ioatdma_device *ioat_dma)
 		if (!ioat_chan)
 			break;
 
+		printk("wei: ioat_enumerate_channels\n");
 		ioat_init_channel(ioat_dma, ioat_chan, i);
 		ioat_chan->xfercap_log = xfercap_log;
 		spin_lock_init(&ioat_chan->prep_lock);
@@ -766,6 +768,7 @@ static void
 ioat_init_channel(struct ioatdma_device *ioat_dma,
 		  struct ioatdma_chan *ioat_chan, int idx)
 {
+	printk("wei: ioat_init_channel\n");
 	struct dma_device *dma = &ioat_dma->dma_dev;
 
 	ioat_chan->ioat_dma = ioat_dma;
@@ -776,7 +779,13 @@ ioat_init_channel(struct ioatdma_device *ioat_dma,
 	list_add_tail(&ioat_chan->dma_chan.device_node, &dma->channels);
 	ioat_dma->idx[idx] = ioat_chan;
 	timer_setup(&ioat_chan->timer, ioat_timer_event, 0);
+<<<<<<< HEAD
 	tasklet_setup(&ioat_chan->cleanup_task, ioat_cleanup_event);
+=======
+	tasklet_init(&ioat_chan->cleanup_task, ioat_cleanup_event, data);
+	printk("wei: ioat_init_channel, cleanup_task func name %pF at address %p\n",
+			ioat_chan->cleanup_task.func, ioat_chan->cleanup_task.func);
+>>>>>>> f88f63fdbe8b (with printk debug)
 }
 
 #define IOAT_NUM_SRC_TEST 6 /* must be <= 8 */
