@@ -125,6 +125,20 @@ static vm_fault_t __dev_dax_pte_fault(struct dev_dax *dev_dax,
 	if (fault_size != dev_dax->align)
 		return VM_FAULT_SIGBUS;
 
+	dax_region = dev_dax->region;
+/*
+	if (dax_region->align > PAGE_SIZE) {
+		dev_dbg(dev, "alignment (%#x) > fault size (%#x)\n",
+			dax_region->align, fault_size);
+		printk("drivers/dax/device.c: __dev_dax_pte_fault: dax_region->align > PAGE_SIZE\n");
+		//return VM_FAULT_SIGBUS;
+	}
+
+	if (fault_size != dax_region->align) {
+		printk("drivers/dax/device.c: __dev_dax_pte_fault: fault_size != dax_region->align\n");
+		//return VM_FAULT_SIGBUS;
+	}
+*/
         if (vma && userfaultfd_missing(vma)) {
 		//printk("drivers/dax/device.c: __dev_dax_pte_fault: vma && userfaultfd_missing(vma)\n");
 		return handle_userfault(vmf, VM_UFFD_MISSING);
@@ -133,6 +147,7 @@ static vm_fault_t __dev_dax_pte_fault(struct dev_dax *dev_dax,
 	phys = dax_pgoff_to_phys(dev_dax, vmf->pgoff, PAGE_SIZE);
 	if (phys == -1) {
 		dev_dbg(dev, "pgoff_to_phys(%#lx) failed\n", vmf->pgoff);
+		printk("drivers/dax/device.c: __dev_dax_pte_fault: dax_pgoff_to_phys(dev_dax, vmf->pgoff, PAGE_SIZE) == -1\n");
 		return VM_FAULT_SIGBUS;
 	}
 
@@ -156,8 +171,10 @@ static vm_fault_t __dev_dax_pmd_fault(struct dev_dax *dev_dax,
 
 	//printk("drivers/dax/device.c: dax: pmd fault\n");
 
-	if (check_vma(dev_dax, vmf->vma, __func__))
+	if (check_vma(dev_dax, vmf->vma, __func__)) {
+		printk("drivers/dax/device.c: __dev_dax_pmd_fault: check_vma(dev_dax, vmf->vma, __func__)\n");
 		return VM_FAULT_SIGBUS;
+	}
 
 	if (dev_dax->align > PMD_SIZE) {
 		dev_dbg(dev, "alignment (%#x) > fault size (%#x)\n",
@@ -167,14 +184,30 @@ static vm_fault_t __dev_dax_pmd_fault(struct dev_dax *dev_dax,
 
 	if (fault_size < dev_dax->align)
 		return VM_FAULT_SIGBUS;
+<<<<<<< HEAD
 	else if (fault_size > dev_dax->align)
+=======
+	}
+
+	if (fault_size < dax_region->align) {
+		printk("drivers/dax/device.c: __dev_dax_pmd_fault: fault_size < dax_region->align\n");
+		return VM_FAULT_SIGBUS;
+	}
+	else if (fault_size > dax_region->align) {
+		//printk("drivers/dax/device.c: dax: pmd fault fallback\n");
+>>>>>>> 71314b4d8c4a (allow allocation of 4K page even if device is 2MB aligned)
 		return VM_FAULT_FALLBACK;
 	}
 
 	/* if we are outside of the VMA */
 	if (pmd_addr < vmf->vma->vm_start ||
-			(pmd_addr + PMD_SIZE) > vmf->vma->vm_end)
-		return VM_FAULT_SIGBUS;
+			(pmd_addr + PMD_SIZE) > vmf->vma->vm_end) {
+		//printk("drivers/dax/device.c: __dev_dax_pmd_fault: pmd_addr [%lx] < vmf->vma->vm_start [%lx] || pmd_addr + PMD_SIZE [%lx] > vmf->vma->vm_end [%lx]\n",
+		//		pmd_addr, vmf->vma->vm_start, pmd_addr + PMD_SIZE, vmf->vma->vm_end);
+		return VM_FAULT_FALLBACK;
+		//return __dev_dax_pte_fault(dev_dax, vmf, pfn);
+		//return VM_FAULT_SIGBUS;
+	}
 
         if (vma && userfaultfd_missing(vma)) {
 		//printk("drivers/dax/device.c: __dev_dax_pmd_fault: vma && userfaultfd_missing(vm)\n");
@@ -210,8 +243,10 @@ static vm_fault_t __dev_dax_pud_fault(struct dev_dax *dev_dax,
 
 	//printk("drivers/dax/device.c: dax: pud fault\n");
 
-	if (check_vma(dev_dax, vmf->vma, __func__))
+	if (check_vma(dev_dax, vmf->vma, __func__)) {
+		printk("drivers/dax/device.c: __dev_dax_pud_fault: check_vma(dev_dax, vmf->vma, __func__)\n");
 		return VM_FAULT_SIGBUS;
+	}
 
 	if (dev_dax->align > PUD_SIZE) {
 		dev_dbg(dev, "alignment (%#x) > fault size (%#x)\n",
@@ -221,14 +256,27 @@ static vm_fault_t __dev_dax_pud_fault(struct dev_dax *dev_dax,
 
 	if (fault_size < dev_dax->align)
 		return VM_FAULT_SIGBUS;
+<<<<<<< HEAD
 	else if (fault_size > dev_dax->align)
+=======
+	}
+
+	if (fault_size < dax_region->align) {
+		printk("drivers/dax/device.c: __dev_dax_pud_fault: fault_size < dax_region->align\n");
+		return VM_FAULT_SIGBUS;
+	}
+	else if (fault_size > dax_region->align) {
+		//printk("drivers/dax/device.c: dax: pud fault fallback\n");
+>>>>>>> 71314b4d8c4a (allow allocation of 4K page even if device is 2MB aligned)
 		return VM_FAULT_FALLBACK;
         }
 
 	/* if we are outside of the VMA */
 	if (pud_addr < vmf->vma->vm_start ||
-			(pud_addr + PUD_SIZE) > vmf->vma->vm_end)
+			(pud_addr + PUD_SIZE) > vmf->vma->vm_end) {
+		printk("drivers/dax/device.c: __dev_dax_pud_fault: pud_addr < vmf->vma->vm_start || pud_addr + PUD_SIZE > vmf->vma->vm_end\n");
 		return VM_FAULT_SIGBUS;
+	}
 
         if (vma && userfaultfd_missing(vma)) {
                 //printk("drivers/dax/device.c: __dev_dax_pud_fault: vma && userfaultfd_missing(vm)\n");
@@ -281,6 +329,7 @@ static vm_fault_t dev_dax_huge_fault(struct vm_fault *vmf,
 		rc = __dev_dax_pud_fault(dev_dax, vmf);
 		break;
 	default:
+		printk("drivers/dax/device.c: dev_dax_huge_fault: default case\n");
 		rc = VM_FAULT_SIGBUS;
 	}
 
