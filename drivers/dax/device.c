@@ -110,7 +110,7 @@ static vm_fault_t __dev_dax_pte_fault(struct dev_dax *dev_dax,
 	unsigned int fault_size = PAGE_SIZE;
 	struct vm_area_struct *vma = vmf->vma;
 
-//	printk("dax: pte fault\n");
+	//printk("drivers/dax/device.c: dax: pte fault\n");
 
 	if (check_vma(dev_dax, vmf->vma, __func__))
 		return VM_FAULT_SIGBUS;
@@ -126,7 +126,7 @@ static vm_fault_t __dev_dax_pte_fault(struct dev_dax *dev_dax,
 
         if (vma && userfaultfd_missing(vma)) {
 		//printk("drivers/dax/device.c: __dev_dax_pte_fault: vma && userfaultfd_missing(vma)\n");
-                return handle_userfault(vmf, VM_UFFD_MISSING);
+		return handle_userfault(vmf, VM_UFFD_MISSING);
 	}
 
 	phys = dax_pgoff_to_phys(dev_dax, vmf->pgoff, PAGE_SIZE);
@@ -153,8 +153,7 @@ static vm_fault_t __dev_dax_pmd_fault(struct dev_dax *dev_dax,
 	unsigned int fault_size = PMD_SIZE;
 	struct vm_area_struct *vma = vmf->vma;
 
-	
-//	printk("dax: pmd fault\n");
+	//printk("drivers/dax/device.c: dax: pmd fault\n");
 
 	if (check_vma(dev_dax, vmf->vma, __func__))
 		return VM_FAULT_SIGBUS;
@@ -208,7 +207,7 @@ static vm_fault_t __dev_dax_pud_fault(struct dev_dax *dev_dax,
 	unsigned int fault_size = PUD_SIZE;
 	struct vm_area_struct *vma = vmf->vma;
 
-///	printk("dax: pud fault\n");
+	//printk("drivers/dax/device.c: dax: pud fault\n");
 
 	if (check_vma(dev_dax, vmf->vma, __func__))
 		return VM_FAULT_SIGBUS;
