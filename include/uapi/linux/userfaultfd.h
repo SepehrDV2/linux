@@ -53,7 +53,8 @@
 	((__u64)1 << _UFFDIO_WAKE |		\
 	 (__u64)1 << _UFFDIO_COPY |		\
 	 (__u64)1 << _UFFDIO_CONTINUE |		\
-	 (__u64)1 << _UFFDIO_WRITEPROTECT)
+	 (__u64)1 << _UFFDIO_WRITEPROTECT | \
+	 (__u64)1 << _UFFDIO_TLBFLUSH)
 
 /*
  * Valid ioctl command number range with this API is from 0x00 to
@@ -71,6 +72,7 @@
 #define _UFFDIO_WRITEPROTECT		(0x06)
 #define _UFFDIO_CONTINUE		(0x07)
 #define _UFFDIO_API			(0x3F)
+#define _UFFDIO_TLBFLUSH		(0x08)
 
 /* userfaultfd ioctl ids */
 #define UFFDIO 0xAA
@@ -90,6 +92,8 @@
 				      struct uffdio_writeprotect)
 #define UFFDIO_CONTINUE		_IOWR(UFFDIO, _UFFDIO_CONTINUE,	\
 				      struct uffdio_continue)
+#define UFFDIO_TLBFLUSH		_IOR(UFFDIO, _UFFDIO_TLBFLUSH,	\
+				      struct uffdio_range)
 
 /* read() structure */
 struct uffd_msg {

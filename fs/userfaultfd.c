@@ -129,6 +129,10 @@ static void userfaultfd_set_vm_flags(struct vm_area_struct *vma,
 	if ((vma->vm_flags & VM_SHARED) && uffd_wp_changed)
 		vma_set_page_prot(vma);
 }
+struct userfaultfd_tlbflush_range {
+	unsigned long start;
+	unsigned long len;
+};
 
 static int userfaultfd_wake_function(wait_queue_entry_t *wq, unsigned mode,
 				     int wake_flags, void *key)
@@ -2016,6 +2020,30 @@ static int userfaultfd_continue(struct userfaultfd_ctx *ctx, unsigned long arg)
 	}
 	ret = range.len == uffdio_continue.range.len ? 0 : -EAGAIN;
 
+static int userfaultfd_tlbflush(struct userfaultfd_ctx *ctx,
+	       			unsigned long arg)
+{
+	int ret;
+	struct uffdio_range uffdio_tlbflush;
+	struct userfaultfd_tlbflush_range range;
+	const void __user *buf = (void __user *)arg;
+	
+	ret = -EFAULT;
+	if (copy_from_user(&uffdio_tlbflush, buf, sizeof(uffdio_tlbflush)))
+		goto out;
+
+	ret = validate_range(ctx->mm, uffdio_tlbflush.start, uffdio_tlbflush.len);
+	if (ret)
+		goto out;
+
+	range.start = uffdio_tlbflush.start;
+	range.len = uffdio_tlbflush.len;
+
+	VM_BUG_ON(!range.len);
+
+	flush_tlb_mm(ctx->mm);
+	ret = 0;
+	
 out:
 	return ret;
 }
@@ -2119,6 +2147,8 @@ static long userfaultfd_ioctl(struct file *file, unsigned cmd,
 		break;
 	case UFFDIO_CONTINUE:
 		ret = userfaultfd_continue(ctx, arg);
+	case UFFDIO_TLBFLUSH:
+		ret = userfaultfd_tlbflush(ctx, arg);
 		break;
 	}
 	return ret;
