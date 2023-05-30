@@ -540,13 +540,20 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 	set_current_state(blocking_state);
 	spin_unlock_irq(&ctx->fault_pending_wqh.lock);
 
-	if (!is_vm_hugetlb_page(vma))
+	if (vma_is_dax(vmf->vma)) {
+		must_wait = userfaultfd_huge_must_wait(ctx, vmf->vma,
+						       vmf->address,
+						       vmf->flags, reason);
+		printk("fs/userfaultfd.c: handle_userfault: vma_is_dax(vmf->vma) [must_wait: %d]\n", must_wait);
+	}
+	else if (!is_vm_hugetlb_page(vma))
 		must_wait = userfaultfd_must_wait(ctx, vmf->address, vmf->flags,
 						  reason);
 	else
 		must_wait = userfaultfd_huge_must_wait(ctx, vma,
 						       vmf->address,
 						       vmf->flags, reason);
+							   
 	if (is_vm_hugetlb_page(vma))
 		hugetlb_vma_unlock_read(vma);
 	mmap_read_unlock(mm);
