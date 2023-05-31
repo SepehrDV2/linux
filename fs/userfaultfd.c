@@ -2364,14 +2364,12 @@ err_out:
 static long userfaultfd_ioctl(struct file *file, unsigned cmd,
 			      unsigned long arg)
 {
-	printk("wei: at the beginning of the userfaultfd_ioctl\n");
 	int ret = -EINVAL;
 	struct userfaultfd_ctx *ctx = file->private_data;
 
 	if (cmd != UFFDIO_API && !userfaultfd_is_initialized(ctx))
 		return -EINVAL;
 
-	printk("wei: cmd and state verify fails\n");
 	switch(cmd) {
 	case UFFDIO_API:
 		ret = userfaultfd_api(ctx, arg);
