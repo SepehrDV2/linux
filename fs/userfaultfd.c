@@ -366,8 +366,6 @@ static inline bool userfaultfd_must_wait(struct userfaultfd_ctx *ctx,
 		ret = true;
 	if (!pte_write(*pte) && (reason & VM_UFFD_WP))
 		ret = true;
-	if (!pte_write(*pte) && (reason & VM_UFFD_WP))
-		ret = true;
 	pte_unmap(pte);
 
 out:
@@ -435,7 +433,7 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 	ctx = vma->vm_userfaultfd_ctx.ctx;
 	if (!ctx)
 		goto out;
-	}
+	
 
 	BUG_ON(ctx->mm != mm);
 
@@ -447,6 +445,7 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 	if (ctx->features & UFFD_FEATURE_SIGBUS) {
 		printk("fs/userfaultfd.c: handle_userfault: ctx->features & UFFD_FEATURE_SIGBUS\n");
 		goto out;
+	}
 	if (!(vmf->flags & FAULT_FLAG_USER) && (ctx->flags & UFFD_USER_MODE_ONLY))
 		goto out;
 
@@ -1346,8 +1345,6 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 	unsigned long start, end, vma_end;
 	struct vma_iterator vmi;
 
-	int uffd_vma_ctx_null;
-	
 	user_uffdio_register = (struct uffdio_register __user *) arg;
 
 	ret = -EFAULT;
@@ -1402,7 +1399,7 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 	vma = vma_find(&vmi, end);
 	if (!vma)
 		goto out_unlock;
-	}
+	
 
 	/*
 	 * If the first vma contains huge pages, make sure start address
@@ -1535,13 +1532,13 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 			ret = split_vma(&vmi, vma, start, 1);
 			if (ret)
 				break;
-			}
+		
 		}
 		if (vma->vm_end > end) {
 			ret = split_vma(&vmi, vma, end, 0);
 			if (ret)
 				break;
-			}
+			
 		}
 	next:
 		/*
@@ -2003,6 +2000,10 @@ static int userfaultfd_continue(struct userfaultfd_ctx *ctx, unsigned long arg)
 		wake_userfault(ctx, &range);
 	}
 	ret = range.len == uffdio_continue.range.len ? 0 : -EAGAIN;
+
+out:
+	return ret;
+}
 
 static int userfaultfd_tlbflush(struct userfaultfd_ctx *ctx,
 	       			unsigned long arg)

@@ -245,19 +245,6 @@ static struct class dma_devclass = {
 
 /* --- client and device registration --- */
 
-/* enable iteration over all operation types */
-#define dma_device_satisfies_mask(device, mask) \
-	__dma_device_satisfies_mask((device), &(mask))
-static int
-__dma_device_satisfies_mask(struct dma_device *device,
-			    const dma_cap_mask_t *want)
-{
-	dma_cap_mask_t has;
-
-	bitmap_and(has.bits, want->bits, device->cap_mask.bits,
-		DMA_TX_TYPE_END);
-	return bitmap_equal(want->bits, has.bits, DMA_TX_TYPE_END);
-}
 static dma_cap_mask_t dma_cap_mask_all;
 
 /**

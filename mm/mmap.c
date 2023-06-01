@@ -2209,7 +2209,7 @@ int __split_vma(struct vma_iterator *vmi, struct vm_area_struct *vma,
 		err = vma->vm_ops->may_split(vma, addr);
 		if (err)
 			return err;
-		}
+		
 	}
 
 	new = vm_area_dup(vma);

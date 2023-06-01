@@ -333,7 +333,6 @@ retry:
 	 * mm/filemap.c. */
 	if (fault_signal_pending(fault, regs)) {
 		if (!user_mode(regs))
-
 			goto no_context;
 		return 0;
 	}

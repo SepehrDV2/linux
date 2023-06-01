@@ -50,17 +50,12 @@ struct vm_area_struct *find_dst_vma(struct mm_struct *dst_mm,
 	 * single existing vma.
 	 */
 	struct vm_area_struct *dst_vma;
-	static volatile int dma_finished = 0;
+	//static volatile int dma_finished = 0;
 
 
 	dst_vma = find_vma(dst_mm, dst_start);
-	if (!dst_vma)
+	if (!range_in_vma(dst_vma, dst_start, dst_start + len))
 		return NULL;
-
-	if (dst_start < dst_vma->vm_start ||
-	    dst_start + len > dst_vma->vm_end)
-		return NULL;
-	}
 
 	//printk("mm/userfaultfd.c: vma_find_uffd: start: 0x%lx\tlen: %ld\n", start, len);
   //printk("mm/userfaultfd.c: vma_find_uffd: found vma 0x%p: 0x%lx - 0x%lx\tlen: %ld\n", vma, vma->vm_start, vma->vm_end, (vma->vm_end - vma->vm_start));
@@ -1147,66 +1142,5 @@ int mwriteprotect_range(struct mm_struct *dst_mm, unsigned long start,
 
 out_unlock:
 	mmap_read_unlock(dst_mm);
-	return err;
-}
-
-int mwriteprotect_range(struct mm_struct *dst_mm, unsigned long start,
-			unsigned long len, bool enable_wp, bool *mmap_changing)
-{
-	struct vm_area_struct *dst_vma;
-	pgprot_t newprot;
-	int err;
-
-	/*
-	 * Sanitize the command parameters:
-	 */
-	BUG_ON(start & ~PAGE_MASK);
-	BUG_ON(len & ~PAGE_MASK);
-
-	/* Does the address range wrap, or is the span zero-sized? */
-	BUG_ON(start + len <= start);
-
-	down_read(&dst_mm->mmap_sem);
-
-	/*
-	 * If memory mappings are changing because of non-cooperative
-	 * operation (e.g. mremap) running in parallel, bail out and
-	 * request the user to retry later
-	 */
-	err = -EAGAIN;
-	if (mmap_changing && READ_ONCE(*mmap_changing))
-		goto out_unlock;
-
-	err = -ENOENT;
-	dst_vma = vma_find_uffd(dst_mm, start, len);
-	/*
-	 * Make sure the vma is not shared, that the dst range is
-	 * both valid and fully within a single existing vma.
-	 */
-	if (!dst_vma || ((dst_vma->vm_flags & VM_SHARED) && !vma_is_dax(dst_vma))) {
-		printk("mm/userfaultfd.c: mwriteprotect_range: dst_vma is null\n");
-		goto out_unlock;
-	}
-	if (!userfaultfd_wp(dst_vma)) {
-		printk("mm/userfaultfd.c: mwriteprotect_range: dst_vma is not userfaultfd_wp\n");
-		goto out_unlock;
-	}
-	if (!(vma_is_anonymous(dst_vma) || vma_is_dax(dst_vma))) {
-		printk("mm/userfaultfd.c: mwriteprotect_range: dst_vma is not anonymous or dax\n");
-		goto out_unlock;
-	}
-
-	if (enable_wp)
-		newprot = vm_get_page_prot(dst_vma->vm_flags & ~(VM_WRITE));
-	else
-		newprot = vm_get_page_prot(dst_vma->vm_flags);
-
-	//printk("mm/userfaultfd.c: mwriteprotect_range: changing protection: enable_wp: [%d] is vm hugetlb_page: [%d]\n", enable_wp, is_vm_hugetlb_page(dst_vma));
-	change_protection(dst_vma, start, start + len, newprot,
-			  enable_wp ? MM_CP_UFFD_WP : MM_CP_UFFD_WP_RESOLVE);
-
-	err = 0;
-out_unlock:
-	up_read(&dst_mm->mmap_sem);
 	return err;
 }

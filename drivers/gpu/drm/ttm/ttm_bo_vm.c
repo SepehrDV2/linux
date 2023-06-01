@@ -122,17 +122,10 @@ vm_fault_t ttm_bo_vm_reserve(struct ttm_buffer_object *bo,
 	 * for reserve, and if it fails, retry the fault after waiting
 	 * for the buffer to become unreserved.
 	 */
-<<<<<<< HEAD
 	if (unlikely(!dma_resv_trylock(bo->base.resv))) {
 		/*
 		 * If the fault allows retry and this is the first
 		 * fault attempt, we try to release the mmap_lock
-=======
-	if (unlikely(!reservation_object_trylock(bo->resv))) {
-		/*
-		 * If the fault allows retry and this is the first
-		 * fault attempt, we try to release the mmap_sem
->>>>>>> 08dd959a3d6d (mm: allow VM_FAULT_RETRY for multiple times)
 		 * before waiting
 		 */
 		if (fault_flag_allow_retry_first(vmf->flags)) {

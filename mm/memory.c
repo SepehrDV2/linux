@@ -3339,11 +3339,11 @@ static vm_fault_t do_wp_page(struct vm_fault *vmf)
 
 	//printk("mm/memory.c: do_wp_page()\n");
 
-	if (userfaultfd_pte_wp(vma, *vmf->pte)) {
-		printk("mm/memory.c: do_wp_page(): userfaultfd_pte_wp(vma, *vmf->pte)\n");
-		pte_unmap_unlock(vmf->pte, vmf->ptl);
-		return handle_userfault(vmf, VM_UFFD_WP);
-	}
+	//if (userfaultfd_pte_wp(vma, *vmf->pte)) {
+	//	printk("mm/memory.c: do_wp_page(): userfaultfd_pte_wp(vma, *vmf->pte)\n");
+	//	pte_unmap_unlock(vmf->pte, vmf->ptl);
+	//	return handle_userfault(vmf, VM_UFFD_WP);
+	//}
 
 	return do_wp_page_cont(vmf);
 }

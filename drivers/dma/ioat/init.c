@@ -776,16 +776,7 @@ ioat_init_channel(struct ioatdma_device *ioat_dma,
 	list_add_tail(&ioat_chan->dma_chan.device_node, &dma->channels);
 	ioat_dma->idx[idx] = ioat_chan;
 	timer_setup(&ioat_chan->timer, ioat_timer_event, 0);
-<<<<<<< HEAD
 	tasklet_setup(&ioat_chan->cleanup_task, ioat_cleanup_event);
-=======
-	tasklet_init(&ioat_chan->cleanup_task, ioat_cleanup_event, data);
-<<<<<<< HEAD
-	printk("wei: ioat_init_channel, cleanup_task func name %pF at address %p\n",
-			ioat_chan->cleanup_task.func, ioat_chan->cleanup_task.func);
->>>>>>> f88f63fdbe8b (with printk debug)
-=======
->>>>>>> 7d550d30f3e1 (cleanup)
 }
 
 #define IOAT_NUM_SRC_TEST 6 /* must be <= 8 */
