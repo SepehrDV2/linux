@@ -2285,7 +2285,7 @@ int split_vma(struct vma_iterator *vmi, struct vm_area_struct *vma,
 {
 	if (vma->vm_mm->map_count >= sysctl_max_map_count)
 		return -ENOMEM;
-	}
+	
 
 	return __split_vma(vmi, vma, addr, new_below);
 }
