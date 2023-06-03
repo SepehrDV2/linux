@@ -22,6 +22,15 @@
 #include <linux/pci.h>
 #include <asm/pgtable.h>
 #include <linux/spinlock.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/device.h>
+#include <linux/cdev.h>
+#include <linux/wait.h>
+#include <linux/string.h>
+#include <linux/dma-mapping.h>
+#include <linux/slab.h>
+#include <linux/dmaengine.h>
 
 #define MAX_DMA_CHANS 16
 #define MAX_LEN_PER_DMA_OP HPAGE_SIZE
