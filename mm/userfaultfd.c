@@ -727,7 +727,7 @@ static int bad_address(void *p)
 {
 	unsigned long dummy;
 
-	return get_kernel_nofault((unsigned long *)p, dummy);
+	return get_kernel_nofault(dummy, (unsigned long *)p);
 }
 
 static void  page_walk(u64 address, u64* phy_addr)
