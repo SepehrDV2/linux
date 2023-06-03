@@ -66,7 +66,7 @@ struct vm_area_struct *find_dst_vma(struct mm_struct *dst_mm,
 	 */
 	if (!dst_vma->vm_userfaultfd_ctx.ctx)
 		return NULL;
-	}
+	
 
 	return dst_vma;
 }
