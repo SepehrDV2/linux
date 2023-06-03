@@ -175,45 +175,6 @@ retry_pte:
 						jiffies_to_msecs(jiffies));
 			}
 
-			/*
-			 * Detect whether we'll need to COW before
-			 * resolving an uffd-wp fault.  Note that this
-			 * includes detection of the zero page (where
-			 * page==NULL)
-			 */
-			if (uffd_wp_resolve) {
-				struct vm_fault vmf = {
-					.vma = vma,
-					.address = addr & PAGE_MASK,
-					.orig_pte = oldpte,
-					.pmd = pmd,
-					.pte = pte,
-					.ptl = ptl,
-				};
-				vm_fault_t ret;
-
-				/* If the fault is resolved already, skip */
-				if (!pte_uffd_wp(*pte))
-					continue;
-
-				arch_leave_lazy_mmu_mode();
-				/* With PTE lock held */
-				ret = do_wp_page_cont(&vmf);
-				if (ret != VM_FAULT_WRITE && ret != 0)
-					/* Probably OOM */
-					return pages;
-				pte = pte_offset_map_lock(vma->vm_mm, pmd,
-							  addr, &ptl);
-				arch_enter_lazy_mmu_mode();
-				if (ret == 0 || !pte_present(*pte))
-					/*
-					 * This PTE could have been modified
-					 * during or after COW before taking
-					 * the lock; retry.
-					 */
-					goto retry_pte;
-			}
-
 			oldpte = ptep_modify_prot_start(vma, addr, pte);
 			ptent = pte_modify(oldpte, newprot);
 
@@ -589,12 +550,12 @@ long change_protection(struct mmu_gather *tlb,
 	WARN_ON_ONCE(cp_flags & MM_CP_PROT_NUMA);
 #endif
 
-	BUG_ON((cp_flags & MM_CP_UFFD_WP_ALL) == MM_CP_UFFD_WP_ALL);
-
-	if (is_vm_hugetlb_page(vma))
+	
+	if (is_vm_hugetlb_page(vma)){
 		pages = hugetlb_change_protection(vma, start, end, newprot,
 						  cp_flags);
-	else
+	}
+	else{
 		pages = change_protection_range(tlb, vma, start, end, newprot,
 						cp_flags);
 		//printk("mm/mprotect.c: change_protection: !is_vm_hugetlb_page(vma)\n");
