@@ -32,9 +32,6 @@
 #include <linux/slab.h>
 #include <linux/dmaengine.h>
 
-#define MAX_DMA_CHANS 16
-#define MAX_LEN_PER_DMA_OP HPAGE_SIZE
-#define MAX_LEN_PER_DMA_OP 524288
 
 static DECLARE_WAIT_QUEUE_HEAD(wq);
 //For simplicity, request/release a fixed number of channs
@@ -935,8 +932,10 @@ static __always_inline ssize_t __dma_mcopy_pages(struct mm_struct *dst_mm,
     #ifdef DEBUG_TM
     start = rdtsc();
     #endif
-	down_read(&dst_mm->mmap_sem);
-    /*
+	//down_read(&dst_mm->mmap_sem);
+    mmap_read_lock(dst_mm);
+    
+	/*
 	 * If memory mappings are changing because of non-cooperative
 	 * operation (e.g. mremap) running in parallel, bail out and
 	 * request the user to retry later
@@ -1028,7 +1027,8 @@ static __always_inline ssize_t __dma_mcopy_pages(struct mm_struct *dst_mm,
 	}
 
 out_unlock:
-	up_read(&dst_mm->mmap_sem);
+	//up_read(&dst_mm->mmap_sem);
+	mmap_read_unlock(dst_mm);
 out:
    	BUG_ON(copied < 0);
 	BUG_ON(err > 0);
