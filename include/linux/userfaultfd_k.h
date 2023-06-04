@@ -77,7 +77,7 @@ extern long uffd_wp_range(struct mm_struct *dst_mm, struct vm_area_struct *vma,
 			  unsigned long start, unsigned long len, bool enable_wp);
 extern ssize_t dma_mcopy_pages(struct mm_struct *dst_mm,
 				struct uffdio_dma_copy *uufdio_dma_copy,
-			    	bool *mmap_changing);
+			    	atomic_t *mmap_changing);
 extern int dma_request_channs(struct uffdio_dma_channs *uffdio_dma_channs);
 extern int dma_release_channs(void);
 
