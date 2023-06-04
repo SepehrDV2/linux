@@ -878,7 +878,7 @@ int dma_release_channs(void)
 
 static __always_inline ssize_t __dma_mcopy_pages(struct mm_struct *dst_mm,
 					      struct uffdio_dma_copy *uffdio_dma_copy,
-					      bool *mmap_changing)
+					      atomic_t *mmap_changing)
 {
 	struct vm_area_struct *dst_vma;
 	ssize_t err;
@@ -1050,7 +1050,7 @@ ssize_t mcopy_atomic(struct mm_struct *dst_mm, unsigned long dst_start,
 
 ssize_t dma_mcopy_pages(struct mm_struct *dst_mm,
 		     struct uffdio_dma_copy *uffdio_dma_copy,
-		     bool *mmap_changing)
+		     atomic_t *mmap_changing)
 {
 	return __dma_mcopy_pages(dst_mm, 
 			      uffdio_dma_copy,
