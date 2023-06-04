@@ -941,8 +941,9 @@ static __always_inline ssize_t __dma_mcopy_pages(struct mm_struct *dst_mm,
 	 * request the user to retry later
 	 */
 	err = -EAGAIN;
-	if (mmap_changing && READ_ONCE(*mmap_changing))
-		goto out_unlock;
+	if (mmap_changing)
+		if(READ_ONCE(*mmap_changing))
+			goto out_unlock;
 
 	BUG_ON(uffdio_dma_copy == NULL);
 	count = uffdio_dma_copy->count;
