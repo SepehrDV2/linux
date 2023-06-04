@@ -2060,7 +2060,7 @@ out:
 static int userfaultfd_bad_address(void *p)
 {
   unsigned long dummy;
-  return probe_kernel_address((unsigned long *)p, dummy);
+  return get_kernel_nofault(dummy, (unsigned long *)p);
 }
 
 static int userfaultfd_get_flag(struct userfaultfd_ctx *ctx,
