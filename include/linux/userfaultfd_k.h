@@ -153,7 +153,7 @@ static inline bool vma_can_userfault(struct vm_area_struct *vma,
 				     unsigned long vm_flags)
 {
 	if ((vm_flags & VM_UFFD_MINOR) &&
-	    (!is_vm_hugetlb_page(vma) && !vma_is_shmem(vma)))
+	    (!is_vm_hugetlb_page(vma) && !vma_is_shmem(vma) && !vma_is_dax(vma)))
 		return false;
 #ifndef CONFIG_PTE_MARKER_UFFD_WP
 	/*
@@ -165,7 +165,7 @@ static inline bool vma_can_userfault(struct vm_area_struct *vma,
 		return false;
 #endif
 	return vma_is_anonymous(vma) || is_vm_hugetlb_page(vma) ||
-	    vma_is_shmem(vma);
+	    vma_is_shmem(vma) || vma_is_dax(vma);
 }
 
 extern int dup_userfaultfd(struct vm_area_struct *, struct list_head *);
