@@ -1358,7 +1358,9 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 	if (!uffdio_register.mode) {
 		printk("fs/userfaultfd.c: userfaultfd_register: !uffdio_register.mode\n");
 		goto out;
-	if (uffdio_register.mode & ~UFFD_API_REGISTER_MODES)
+	}
+	if (uffdio_register.mode & ~UFFD_API_REGISTER_MODES){
+		printk("fs/userfaultfd.c: userfaultfd_register: UFFD_API_REGSITER_MODES\n");
 		goto out;
 	}
 	vm_flags = 0;
@@ -1430,9 +1432,10 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 		ret = -EINVAL;
 		if (!vma_can_userfault(cur, vm_flags)) {
 			printk("fs/userfaultfd.c: userfaultfd_register: !vma_can_userfault(cur, vm_flags)\n");
+			printk("cur: %d , vm_flags: %x\n", cur, vm_flags);
 			goto out_unlock;
 		}
-
+		printk("fs/userfaultfd.c: passed vma check with cur %d, flags %x \n", cur, vm_flags);
 		/*
 		 * UFFDIO_COPY will fill file holes even without
 		 * PROT_WRITE. This check enforces that if this is a
