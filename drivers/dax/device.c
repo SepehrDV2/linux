@@ -11,6 +11,7 @@
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <linux/mman.h>
+#include <linux/userfaultfd_k.h>
 #include "dax-private.h"
 #include "bus.h"
 
@@ -18,7 +19,7 @@ static int check_vma(struct dev_dax *dev_dax, struct vm_area_struct *vma,
 		const char *func)
 {
 	struct device *dev = &dev_dax->dev;
-	unsigned long mask;
+	unsigned long mask, mask2;
 
 	if (!dax_alive(dev_dax->dax_dev))
 		return -ENXIO;
@@ -32,7 +33,9 @@ static int check_vma(struct dev_dax *dev_dax, struct vm_area_struct *vma,
 	}
 
 	mask = dev_dax->align - 1;
-	if (vma->vm_start & mask || vma->vm_end & mask) {
+	mask2 = (unsigned int)4096 - 1;
+	if ((vma->vm_start & mask || vma->vm_end & mask) && (vma->vm_start & mask2 || vma->vm_end & mask2)) {
+	//if (vma->vm_start & mask || vma->vm_end & mask) {
 		dev_info_ratelimited(dev,
 				"%s: %s: fail, unaligned vma (%#lx - %#lx, %#lx)\n",
 				current->comm, func, vma->vm_start, vma->vm_end,
@@ -79,11 +82,12 @@ static vm_fault_t __dev_dax_pte_fault(struct dev_dax *dev_dax,
 	struct device *dev = &dev_dax->dev;
 	phys_addr_t phys;
 	unsigned int fault_size = PAGE_SIZE;
-
+	struct vm_area_struct *vma = vmf->vma;
+ 
 	if (check_vma(dev_dax, vmf->vma, __func__))
 		return VM_FAULT_SIGBUS;
 
-	if (dev_dax->align > PAGE_SIZE) {
+	/*if (dev_dax->align > PAGE_SIZE) {
 		dev_dbg(dev, "alignment (%#x) > fault size (%#x)\n",
 			dev_dax->align, fault_size);
 		return VM_FAULT_SIGBUS;
@@ -91,6 +95,12 @@ static vm_fault_t __dev_dax_pte_fault(struct dev_dax *dev_dax,
 
 	if (fault_size != dev_dax->align)
 		return VM_FAULT_SIGBUS;
+*/
+
+	if (vma && userfaultfd_missing(vma)) {
+		//printk("drivers/dax/device.c: __dev_dax_pte_fault: vma && userfaultfd_missing(vma)\n");
+		return handle_userfault(vmf, VM_UFFD_MISSING);
+	}
 
 	phys = dax_pgoff_to_phys(dev_dax, vmf->pgoff, PAGE_SIZE);
 	if (phys == -1) {
@@ -111,7 +121,8 @@ static vm_fault_t __dev_dax_pmd_fault(struct dev_dax *dev_dax,
 	phys_addr_t phys;
 	pgoff_t pgoff;
 	unsigned int fault_size = PMD_SIZE;
-
+	struct vm_area_struct *vma = vmf->vma;
+ 
 	if (check_vma(dev_dax, vmf->vma, __func__))
 		return VM_FAULT_SIGBUS;
 
@@ -121,15 +132,24 @@ static vm_fault_t __dev_dax_pmd_fault(struct dev_dax *dev_dax,
 		return VM_FAULT_SIGBUS;
 	}
 
-	if (fault_size < dev_dax->align)
+	if (fault_size < dev_dax->align){
 		return VM_FAULT_SIGBUS;
-	else if (fault_size > dev_dax->align)
+	}
+	else if (fault_size > dev_dax->align){
 		return VM_FAULT_FALLBACK;
-
+	}
 	/* if we are outside of the VMA */
 	if (pmd_addr < vmf->vma->vm_start ||
-			(pmd_addr + PMD_SIZE) > vmf->vma->vm_end)
-		return VM_FAULT_SIGBUS;
+			(pmd_addr + PMD_SIZE) > vmf->vma->vm_end){
+		return VM_FAULT_FALLBACK;
+		//return VM_FAULT_SIGBUS;
+		
+		}
+
+	if (vma && userfaultfd_missing(vma)) {
+		//printk("drivers/dax/device.c: __dev_dax_pmd_fault: vma && userfaultfd_missing(vm)\n");
+        return handle_userfault(vmf, VM_UFFD_MISSING);
+	}
 
 	pgoff = linear_page_index(vmf->vma, pmd_addr);
 	phys = dax_pgoff_to_phys(dev_dax, pgoff, PMD_SIZE);
@@ -152,7 +172,8 @@ static vm_fault_t __dev_dax_pud_fault(struct dev_dax *dev_dax,
 	phys_addr_t phys;
 	pgoff_t pgoff;
 	unsigned int fault_size = PUD_SIZE;
-
+	struct vm_area_struct *vma = vmf->vma;
+ 
 
 	if (check_vma(dev_dax, vmf->vma, __func__))
 		return VM_FAULT_SIGBUS;
@@ -172,6 +193,11 @@ static vm_fault_t __dev_dax_pud_fault(struct dev_dax *dev_dax,
 	if (pud_addr < vmf->vma->vm_start ||
 			(pud_addr + PUD_SIZE) > vmf->vma->vm_end)
 		return VM_FAULT_SIGBUS;
+
+	if (vma && userfaultfd_missing(vma)) {
+        //printk("drivers/dax/device.c: __dev_dax_pud_fault: vma && userfaultfd_missing(vm)\n");
+		return handle_userfault(vmf, VM_UFFD_MISSING);
+	}
 
 	pgoff = linear_page_index(vmf->vma, pud_addr);
 	phys = dax_pgoff_to_phys(dev_dax, pgoff, PUD_SIZE);
