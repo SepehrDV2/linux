@@ -831,7 +831,7 @@ int dma_release_channs(void)
 
 static __always_inline ssize_t __dma_mcopy_pages(struct mm_struct *dst_mm,
 					      struct uffdio_dma_copy *uffdio_dma_copy,
-					      bool *mmap_changing)
+					      atomic_t *mmap_changing)
 {
 	struct vm_area_struct *dst_vma;
 	ssize_t err;
@@ -866,14 +866,14 @@ static __always_inline ssize_t __dma_mcopy_pages(struct mm_struct *dst_mm,
     #ifdef DEBUG_TM
     start = rdtsc();
     #endif
-	down_read(&dst_mm->mmap_sem);
+	down_read(&dst_mm->mmap_lock);
     /*
 	 * If memory mappings are changing because of non-cooperative
 	 * operation (e.g. mremap) running in parallel, bail out and
 	 * request the user to retry later
 	 */
 	err = -EAGAIN;
-	if (mmap_changing && READ_ONCE(*mmap_changing))
+	if (mmap_changing && atomic_read(mmap_changing))
 		goto out_unlock;
 
 	BUG_ON(uffdio_dma_copy == NULL);
@@ -958,7 +958,7 @@ static __always_inline ssize_t __dma_mcopy_pages(struct mm_struct *dst_mm,
 	}
 
 out_unlock:
-	up_read(&dst_mm->mmap_sem);
+	up_read(&dst_mm->mmap_lock);
 out:
    	BUG_ON(copied < 0);
 	BUG_ON(err > 0);
@@ -982,7 +982,7 @@ ssize_t mcopy_atomic(struct mm_struct *dst_mm, unsigned long dst_start,
 
 ssize_t dma_mcopy_pages(struct mm_struct *dst_mm,
 		     struct uffdio_dma_copy *uffdio_dma_copy,
-		     bool *mmap_changing)
+		     atomic_t *mmap_changing)
 {
 	return __dma_mcopy_pages(dst_mm, 
 			      uffdio_dma_copy,

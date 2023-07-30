@@ -4452,7 +4452,7 @@ static inline vm_fault_t wp_huge_pmd(struct vm_fault *vmf)
 	}
 
 	if (vma_is_dax(vmf->vma)) {
-		if (userfaultfd_huge_pmd_wp(vmf->vma, orig_pmd)) {
+		if (userfaultfd_huge_pmd_wp(vmf->vma, vmf->orig_pmd)) {
 			return handle_userfault(vmf, VM_UFFD_WP);
 		}
 	}

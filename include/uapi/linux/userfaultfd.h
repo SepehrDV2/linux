@@ -46,7 +46,7 @@
 #define UFFD_API_RANGE_IOCTLS_BASIC		\
 	((__u64)1 << _UFFDIO_WAKE |		\
 	 (__u64)1 << _UFFDIO_COPY |		\
-	 (__u64)1 << _UFFDIO_CONTINUE) |
+	 (__u64)1 << _UFFDIO_CONTINUE | \
 	 (__u64)1 << _UFFDIO_COPY |		\
 	 (__u64)1 << _UFFDIO_TLBFLUSH | \
    (__u64)1 << _UFFDIO_CR3      | \
