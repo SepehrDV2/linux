@@ -506,17 +506,28 @@ vm_fault_t handle_userfault(struct vm_fault *vmf, unsigned long reason)
 	 */
 	set_current_state(blocking_state);
 	spin_unlock_irq(&ctx->fault_pending_wqh.lock);
-	if(vma_is_dax(vmf->vma))
-		must_wait = userfaultfd_huge_must_wait(ctx, vmf->vma,
+	if(vma_is_dax(vmf->vma)){
+		if(vma_mmu_pagesize(vmf->vma) == PAGE_SIZE){
+			must_wait = userfaultfd_must_wait(ctx,
 						       vmf->address,
-						       vmf->flags, reason);		 
-	else if (!is_vm_hugetlb_page(vmf->vma))
+						       vmf->flags, reason);
+		}
+		else{
+			must_wait = userfaultfd_huge_must_wait(ctx, vmf->vma,
+						       vmf->address,
+						       vmf->flags, reason);
+	
+		}		
+	} 
+	else if (!is_vm_hugetlb_page(vmf->vma)){
 		must_wait = userfaultfd_must_wait(ctx, vmf->address, vmf->flags,
 						  reason);
-	else
+	}
+	else{
 		must_wait = userfaultfd_huge_must_wait(ctx, vmf->vma,
 						       vmf->address,
 						       vmf->flags, reason);
+	}
 	mmap_read_unlock(mm);
 
 	if (likely(must_wait && !READ_ONCE(ctx->released))) {
@@ -1266,15 +1277,22 @@ static inline bool vma_can_userfault(struct vm_area_struct *vma,
 {
 	/* FIXME: add WP support to hugetlbfs and shmem */
 	if (vm_flags & VM_UFFD_WP) {
-		if (is_vm_hugetlb_page(vma) || vma_is_shmem(vma))
+		if (is_vm_hugetlb_page(vma) || vma_is_shmem(vma)){
+			printk("forbiding uffd wp for this region\n");
+			if(vma_is_dax(vma)){
+				printk("forbidden vma was dax\n");
+			}
 			return false;
+		}
 	}
 
 	if (vm_flags & VM_UFFD_MINOR) {
 		if (!(is_vm_hugetlb_page(vma) || vma_is_shmem(vma)))
 			return false;
 	}
-
+	if(vma_is_dax(vma)){
+		printk("allowing uffd for dax region\n");
+	}
 	return vma_is_anonymous(vma) || is_vm_hugetlb_page(vma) || vma_is_dax(vma) ||
 	       vma_is_shmem(vma);
 }
@@ -1813,6 +1831,7 @@ static int userfaultfd_writeprotect(struct userfaultfd_ctx *ctx,
 	struct userfaultfd_wake_range range;
 	bool mode_wp, mode_dontwake;
 
+	//printk("userfaultfd_writeprotect started\n");
 	if (atomic_read(&ctx->mmap_changing))
 		return -EAGAIN;
 
@@ -1824,35 +1843,49 @@ static int userfaultfd_writeprotect(struct userfaultfd_ctx *ctx,
 
 	ret = validate_range(ctx->mm, uffdio_wp.range.start,
 			     uffdio_wp.range.len);
-	if (ret)
+	if (ret){
+		printk("userfaultfd_writeprotect validate_range err\n");
+	
 		return ret;
-
+	}
 	if (uffdio_wp.mode & ~(UFFDIO_WRITEPROTECT_MODE_DONTWAKE |
-			       UFFDIO_WRITEPROTECT_MODE_WP))
+			       UFFDIO_WRITEPROTECT_MODE_WP)){
+		printk("userfaultfd_writeprotect not wp, dontwake mode\n");
+	
 		return -EINVAL;
-
+				   }
 	mode_wp = uffdio_wp.mode & UFFDIO_WRITEPROTECT_MODE_WP;
 	mode_dontwake = uffdio_wp.mode & UFFDIO_WRITEPROTECT_MODE_DONTWAKE;
 
-	if (mode_wp && mode_dontwake)
+	if (mode_wp && mode_dontwake){
+		printk("userfaultfd_writeprotect mode_wp & mode_dontwake\n");
+	
 		return -EINVAL;
-
+	}
 	if (mmget_not_zero(ctx->mm)) {
 		ret = mwriteprotect_range(ctx->mm, uffdio_wp.range.start,
 					  uffdio_wp.range.len, mode_wp,
 					  &ctx->mmap_changing);
 		mmput(ctx->mm);
 	} else {
+		printk("userfaultfd_writeprotect mmget_not_zero fail\n");
+	
 		return -ESRCH;
 	}
 
-	if (ret)
+	if (ret){
+		printk("userfaultfd_writeprotect ret\n");
+	
 		return ret;
-
+	}
 	if (!mode_wp && !mode_dontwake) {
 		range.start = uffdio_wp.range.start;
 		range.len = uffdio_wp.range.len;
 		wake_userfault(ctx, &range);
+	}
+	if(ret){
+		printk("userfaultfd_writeprotect wake ret error\n");
+	
 	}
 	return ret;
 }
@@ -2325,8 +2358,10 @@ static long userfaultfd_ioctl(struct file *file, unsigned cmd,
 	int ret = -EINVAL;
 	struct userfaultfd_ctx *ctx = file->private_data;
 
-	if (cmd != UFFDIO_API && !userfaultfd_is_initialized(ctx))
+	if (cmd != UFFDIO_API && !userfaultfd_is_initialized(ctx)){
+		printk("uffd ioctl not initialized, going einval\n");
 		return -EINVAL;
+	}
 
 	switch(cmd) {
 	case UFFDIO_API:
@@ -2348,6 +2383,7 @@ static long userfaultfd_ioctl(struct file *file, unsigned cmd,
 		ret = userfaultfd_zeropage(ctx, arg);
 		break;
 	case UFFDIO_WRITEPROTECT:
+		//printk("ioctl calling writeprotect\n");
 		ret = userfaultfd_writeprotect(ctx, arg);
 		break;
 	case UFFDIO_CONTINUE:
@@ -2376,6 +2412,9 @@ static long userfaultfd_ioctl(struct file *file, unsigned cmd,
         break;
 
 	}
+	//if(ret == -EINVAL){
+	//	printk("uffd ioctl command not found, going einval\n");
+	//}
 	return ret;
 }
 

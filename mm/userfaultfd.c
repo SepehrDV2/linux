@@ -765,6 +765,8 @@ out:
 
 int dma_request_channs(struct uffdio_dma_channs* uffdio_dma_channs)
 {
+
+#if 0
     struct dma_chan *chan = NULL;
     dma_cap_mask_t mask;
     int index;
@@ -811,10 +813,15 @@ out:
     }
 
     return -1;
+
+#else
+	return 0;
+#endif
 }
 
 int dma_release_channs(void)
 {
+#if 0
     int index;
 
     for (index = 0; index < dma_channs; index++) {
@@ -826,6 +833,7 @@ int dma_release_channs(void)
 
     dma_channs = 0;
     size_per_dma_request = MAX_SIZE_PER_DMA_REQUEST;
+#endif
     return 0;
 }
 
@@ -856,12 +864,31 @@ static __always_inline ssize_t __dma_mcopy_pages(struct mm_struct *dst_mm,
     int index = 0;
 	u64 count = 0;
     u64 expect_count = 0;
-    static u64 dma_assign_index = 0;
+    static atomic64_t dma_assign_index = ATOMIC_INIT(0);
 	struct tx_dma_param tx_dma_param;
     u64 dma_len = 0;
     u64 start, end;
     u64 start_walk, end_walk;
     u64 start_copy, end_copy;
+
+	// First, grab all grabbable DMA channels
+    if(dma_channs == 0) {
+      dma_cap_mask_t mask;
+      dma_cap_zero(mask);
+      dma_cap_set(DMA_MEMCPY, mask);
+      for (index = 0; index < MAX_DMA_CHANS; index++) {
+        chan = dma_request_channel(mask, NULL, NULL);
+        if (chan == NULL) {
+	  printk("wei: error when dma_request_channel, index=%d\n", index);
+	  break;
+        }
+
+        chans[index] = chan;
+      }
+
+      dma_channs = index;
+      BUG_ON(dma_channs == 0);
+    }
 
     #ifdef DEBUG_TM
     start = rdtsc();
@@ -917,8 +944,9 @@ static __always_inline ssize_t __dma_mcopy_pages(struct mm_struct *dst_mm,
         #endif
         for (src_cur = src_start, dst_cur = dst_start, len_cur = 0; len_cur < len;) {
             err = 0;
-		    chan = chans[dma_assign_index++ % dma_channs];
-            if (len_cur + size_per_dma_request > len) {
+		    chan = chans[atomic64_read(&dma_assign_index) % dma_channs];
+		    atomic64_inc(&dma_assign_index);
+			if (len_cur + size_per_dma_request > len) {
                 dma_len = len - len_cur; 
             }
             else {
@@ -1039,12 +1067,23 @@ int mwriteprotect_range(struct mm_struct *dst_mm, unsigned long start,
 	 * Make sure the vma is not shared, that the dst range is
 	 * both valid and fully within a single existing vma.
 	 */
-	if (!dst_vma || (dst_vma->vm_flags & VM_SHARED))
+	//if (!dst_vma || (dst_vma->vm_flags & VM_SHARED)){
+	if (!dst_vma || ((dst_vma->vm_flags & VM_SHARED) && !vma_is_dax(dst_vma))) {
+
+		printk("mm/userfaultfd.c: mwriteprotect_range: dst_vma is null\n");
+		
 		goto out_unlock;
-	if (!userfaultfd_wp(dst_vma))
+	}
+	if (!userfaultfd_wp(dst_vma)){
+		printk("mm/userfaultfd.c: mwriteprotect_range: dst_vma is not userfaultfd_wp\n");
+		
 		goto out_unlock;
-	if (!vma_is_anonymous(dst_vma))
+	}
+	if (!(vma_is_anonymous(dst_vma) || vma_is_dax(dst_vma))){
+		printk("mm/userfaultfd.c: mwriteprotect_range: dst_vma is not anonymous or dax\n");
+		
 		goto out_unlock;
+	}
 
 	if (enable_wp)
 		newprot = vm_get_page_prot(dst_vma->vm_flags & ~(VM_WRITE));
