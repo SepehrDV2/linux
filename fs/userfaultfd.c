@@ -1290,9 +1290,9 @@ static inline bool vma_can_userfault(struct vm_area_struct *vma,
 		if (!(is_vm_hugetlb_page(vma) || vma_is_shmem(vma)))
 			return false;
 	}
-	if(vma_is_dax(vma)){
-		printk("allowing uffd for dax region\n");
-	}
+	//if(vma_is_dax(vma)){
+	//	printk("allowing uffd for dax region\n");
+	//}
 	return vma_is_anonymous(vma) || is_vm_hugetlb_page(vma) || vma_is_dax(vma) ||
 	       vma_is_shmem(vma);
 }
