@@ -91,6 +91,7 @@ int mfill_atomic_install_pte(struct mm_struct *dst_mm, pmd_t *dst_pmd,
 	bool writable = dst_vma->vm_flags & VM_WRITE;
 	bool vm_shared = dst_vma->vm_flags & VM_SHARED;
 	bool page_in_cache = page->mapping;
+	bool is_anon = vma_is_anonymous(dst_vma);
 	spinlock_t *ptl;
 	struct inode *inode;
 	pgoff_t offset, max_off;
@@ -98,7 +99,7 @@ int mfill_atomic_install_pte(struct mm_struct *dst_mm, pmd_t *dst_pmd,
 	_dst_pte = mk_pte(page, dst_vma->vm_page_prot);
 	if (page_in_cache && !vm_shared)
 		writable = false;
-	if (writable || !page_in_cache)
+	if ((writable || !page_in_cache) && (!is_anon))
 		_dst_pte = pte_mkdirty(_dst_pte);
 	if (writable) {
 		if (wp_copy)
