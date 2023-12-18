@@ -99,7 +99,7 @@ int mfill_atomic_install_pte(struct mm_struct *dst_mm, pmd_t *dst_pmd,
 	_dst_pte = mk_pte(page, dst_vma->vm_page_prot);
 	if (page_in_cache && !vm_shared)
 		writable = false;
-	if ((writable || !page_in_cache) && (!is_anon))
+	if ((writable || !page_in_cache) && (!is_anon | vm_shared))
 		_dst_pte = pte_mkdirty(_dst_pte);
 	if (writable) {
 		if (wp_copy)
