@@ -3257,6 +3257,29 @@ void __set_current_blocked(const sigset_t *newset)
 	spin_unlock_irq(&tsk->sighand->siglock);
 }
 
+void set_current_blocked_fastpath(sigset_t *newset)
+{
+	sigdelsetmask(newset, sigmask(SIGKILL) | sigmask(SIGSTOP));
+	__set_current_blocked_fastpath(newset);
+}
+
+void __set_current_blocked_fastpath(const sigset_t *newset)
+{
+	struct task_struct *tsk = current;
+
+	/*
+	 * In case the signal mask hasn't changed, there is nothing we need
+	 * to do. The current->blocked shouldn't be modified by other task.
+	 */
+	if (sigequalsets(&tsk->blocked, newset))
+		return;
+
+	// what if?
+	//spin_lock_irq(&tsk->sighand->siglock);
+	__set_task_blocked(tsk, newset);
+	//spin_unlock_irq(&tsk->sighand->siglock);
+}
+
 /*
  * This is also useful for kernel threads that want to temporarily
  * (or permanently) block certain signals.

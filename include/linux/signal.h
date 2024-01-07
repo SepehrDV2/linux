@@ -287,6 +287,8 @@ extern int __group_send_sig_info(int, struct kernel_siginfo *, struct task_struc
 extern int sigprocmask(int, sigset_t *, sigset_t *);
 extern void set_current_blocked(sigset_t *);
 extern void __set_current_blocked(const sigset_t *);
+extern void set_current_blocked_fastpath(sigset_t *);
+extern void __set_current_blocked_fastpath(const sigset_t *);
 extern int show_unhandled_signals;
 
 extern bool get_signal(struct ksignal *ksig);

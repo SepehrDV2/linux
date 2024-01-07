@@ -669,7 +669,9 @@ SYSCALL_DEFINE0(rt_sigreturn)
 	if (__get_user(uc_flags, &frame->uc.uc_flags))
 		goto badframe;
 
-	set_current_blocked(&set);
+	//set_current_blocked(&set);
+	// what if?
+	set_current_blocked_fastpath(&set);
 
 	if (restore_sigcontext(regs, &frame->uc.uc_mcontext, uc_flags))
 		goto badframe;
