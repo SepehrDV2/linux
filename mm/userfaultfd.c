@@ -167,13 +167,16 @@ static int mcopy_atomic_pte(struct mm_struct *dst_mm,
 			goto out;
 
 		page_kaddr = kmap_atomic(page);
-		ret = copy_from_user(page_kaddr,
-				     (const void __user *) src_addr,
-				     PAGE_SIZE);
+		//ret = copy_from_user(page_kaddr,
+		//		     (const void __user *) src_addr,
+		//			 PAGE_SIZE);
+		// trick
+		ret = -ENOENT;
 		kunmap_atomic(page_kaddr);
 
 		/* fallback to copy_from_user outside mmap_lock */
-		if (unlikely(ret)) {
+		//if (unlikely(ret)) {
+		if (ret) {
 			ret = -ENOENT;
 			*pagep = page;
 			/* don't free the page */
@@ -634,7 +637,8 @@ retry:
 				       src_addr, &page, mcopy_mode, wp_copy);
 		cond_resched();
 
-		if (unlikely(err == -ENOENT)) {
+		//if (unlikely(err == -ENOENT)) {
+		if (err == -ENOENT) {
 			void *page_kaddr;
 
 			mmap_read_unlock(dst_mm);
