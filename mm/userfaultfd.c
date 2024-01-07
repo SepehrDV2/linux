@@ -170,7 +170,7 @@ static int mcopy_atomic_pte(struct mm_struct *dst_mm,
 		//ret = copy_from_user(page_kaddr,
 		//		     (const void __user *) src_addr,
 		//			 PAGE_SIZE);
-		// trick
+		// release mmap_lock faster to get more scalability
 		ret = -ENOENT;
 		kunmap_atomic(page_kaddr);
 
@@ -635,7 +635,7 @@ retry:
 
 		err = mfill_atomic_pte(dst_mm, dst_pmd, dst_vma, dst_addr,
 				       src_addr, &page, mcopy_mode, wp_copy);
-		cond_resched();
+		//cond_resched();
 
 		//if (unlikely(err == -ENOENT)) {
 		if (err == -ENOENT) {

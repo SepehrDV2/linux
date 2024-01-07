@@ -979,6 +979,47 @@ do_sigbus(struct pt_regs *regs, unsigned long error_code, unsigned long address,
 	force_sig_fault(SIGBUS, BUS_ADRERR, (void __user *)address);
 }
 
+static void
+do_sigbus_fastpath(struct pt_regs *regs, unsigned long error_code, unsigned long address,
+	  vm_fault_t fault)
+{
+	/* Kernel mode? Handle exceptions or die: */
+	if (!user_mode(regs)) {
+		kernelmode_fixup_or_oops(regs, error_code, address,
+					 SIGBUS, BUS_ADRERR, ARCH_DEFAULT_PKEY);
+		return;
+	}
+
+	/* User-space => ok to do another page fault: */
+	if (is_prefetch(regs, error_code, address))
+		return;
+
+	sanitize_error_code(address, &error_code);
+
+	if (fixup_vdso_exception(regs, X86_TRAP_PF, error_code, address))
+		return;
+
+	set_signal_archinfo(address, error_code);
+
+#ifdef CONFIG_MEMORY_FAILURE
+	if (fault & (VM_FAULT_HWPOISON|VM_FAULT_HWPOISON_LARGE)) {
+		struct task_struct *tsk = current;
+		unsigned lsb = 0;
+
+		pr_err(
+	"MCE: Killing %s:%d due to hardware memory corruption fault at %lx\n",
+			tsk->comm, tsk->pid, address);
+		if (fault & VM_FAULT_HWPOISON_LARGE)
+			lsb = hstate_index_to_shift(VM_FAULT_GET_HINDEX(fault));
+		if (fault & VM_FAULT_HWPOISON)
+			lsb = PAGE_SHIFT;
+		force_sig_mceerr(BUS_MCEERR_AR, (void __user *)address, lsb);
+		return;
+	}
+#endif
+	force_sig_fault_fastpath(SIGBUS, BUS_ADRERR, (void __user *)address);
+}
+
 static int spurious_kernel_fault_check(unsigned long error_code, pte_t *pte)
 {
 	if ((error_code & X86_PF_WRITE) && !pte_write(*pte))
@@ -1454,12 +1495,16 @@ good_area:
 		pagefault_out_of_memory();
 	} else {
 		if (fault & (VM_FAULT_SIGBUS|VM_FAULT_HWPOISON|
-			     VM_FAULT_HWPOISON_LARGE))
-			do_sigbus(regs, error_code, address, fault);
-		else if (fault & VM_FAULT_SIGSEGV)
+			     VM_FAULT_HWPOISON_LARGE)){
+			//do_sigbus(regs, error_code, address, fault);
+				do_sigbus_fastpath(regs, error_code, address, fault);
+			}
+		else if (fault & VM_FAULT_SIGSEGV){
 			bad_area_nosemaphore(regs, error_code, address);
-		else
+		}
+		else{
 			BUG();
+		}
 	}
 }
 NOKPROBE_SYMBOL(do_user_addr_fault);
