@@ -9912,8 +9912,8 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 	 */
 	local_irq_disable();
 	
-    if (vcpu_to_pmu(vcpu)->global_ctrl & vcpu_to_pmu(vcpu)->pebs_enable)
-        kvm_pmu_counter_cross_mapped_check(vcpu);
+    if(vcpu_to_pmu(vcpu)->global_ctrl & vcpu_to_pmu(vcpu)->pebs_enable) 
+		kvm_pmu_counter_cross_mapped_check(vcpu);
 
 
 	vcpu->mode = IN_GUEST_MODE;

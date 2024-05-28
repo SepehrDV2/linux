@@ -82,8 +82,10 @@ static void kvm_perf_overflow_intr(struct perf_event *perf_event,
        		/* Indicate PEBS overflow PMI to guest. */
        		__set_bit(GLOBAL_STATUS_BUFFER_OVF_BIT,
            (unsigned long *)&pmu->global_status);
-        } else
+        }
+		else{
         	__set_bit(pmc->idx, (unsigned long *)&pmu->global_status);
+		}
 		kvm_make_request(KVM_REQ_PMU, pmc->vcpu);
 
 		/*

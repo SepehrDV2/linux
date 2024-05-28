@@ -231,8 +231,8 @@ static bool intel_is_valid_msr(struct kvm_vcpu *vcpu, u32 msr)
 		ret = guest_cpuid_has(vcpu, X86_FEATURE_DS);
 		break;
 	case MSR_PEBS_DATA_CFG:
-    	msr_info->data = pmu->pebs_data_cfg;
-    	return 0;
+		ret = vcpu->arch.perf_capabilities & PERF_CAP_PEBS_BASELINE;
+		break;
 	default:
 		ret = get_gp_pmc(pmu, msr, MSR_IA32_PERFCTR0) ||
 			get_gp_pmc(pmu, msr, MSR_P6_EVNTSEL0) ||
@@ -267,8 +267,7 @@ static void intel_pmu_pebs_setup(struct kvm_pmu *pmu)
 		pmu->need_save_reset_counter = false;
  
 
-       for_each_set_bit(bit, (unsigned long *)&pmu->pebs_enable, X86_PMC_IDX_MA
-X) {
+       for_each_set_bit(bit, (unsigned long *)&pmu->pebs_enable, X86_PMC_IDX_MAX) {
                pmc = kvm_x86_ops.pmu_ops->pmc_idx_to_pmc(pmu, bit);
 
                if (pmc && pmc_speculative_in_use(pmc)) {
